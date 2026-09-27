@@ -80,6 +80,7 @@ h2{font-size:1.15rem}
 .row .meter{grid-column:2 / 4; height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:-2px}
 .row .meter i{display:block; height:100%}
 .row .pct{color:var(--muted); font-size:.8rem; margin-left:6px}
+.row .spread{grid-column:2 / 4; font-size:.75rem; color:var(--muted); margin-top:-4px}
 
 .section{margin-top:26px}
 .section-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px}
@@ -143,8 +144,8 @@ label.check input{width:20px; height:20px; margin-top:2px; accent-color:var(--ac
 
 /* Bunnmeny */
 nav.tabs{position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--line);
-  display:grid; grid-template-columns:repeat(4,1fr); padding-bottom:env(safe-area-inset-bottom,0px); z-index:10}
-nav.tabs button{border:0; background:none; padding:10px 4px 12px; font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:3px}
+  display:grid; grid-template-columns:repeat(5,1fr); padding-bottom:env(safe-area-inset-bottom,0px); z-index:10}
+nav.tabs button{border:0; background:none; padding:10px 2px 12px; font-size:.72rem; min-width:0; color:var(--muted); display:flex; flex-direction:column; align-items:center; gap:3px}
 nav.tabs button svg{width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
 nav.tabs button[aria-current="page"]{color:var(--ink); font-weight:700}
 .badge{background:var(--warn); color:#fff; border-radius:999px; font-size:.65rem; padding:0 5px; margin-left:2px}
@@ -180,7 +181,8 @@ textarea.paste{width:100%; min-height:180px; border:1px solid var(--line); borde
 
 <nav class="tabs" aria-label="Hovedmeny">
   <button data-tab="oversikt"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 5"/></svg>Oversikt</button>
-  <button data-tab="tx"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg><span>Transaksjoner<span id="ukBadge"></span></span></button>
+  <button data-tab="snitt"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 8-9"/><path d="M3 12h18" stroke-dasharray="2 3"/></svg>Snitt</button>
+  <button data-tab="tx"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg><span>Poster<span id="ukBadge"></span></span></button>
   <button data-tab="budsjett"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Budsjett</button>
   <button data-tab="data"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Import</button>
 </nav>
@@ -335,9 +337,12 @@ function parseBankCSV(text) {
     toAcc: col('til konto'), recv: col('mottakernavn'), inn: col('beløp inn'), ut: col('beløp ut'),
     amount: col('beløp'), status: col('status'), msg: col('melding'),
   };
-  const out = []; let skipped = 0, reserved = 0;
+  const out = []; let skipped = 0, reserved = 0; const coverage = {};
   for (const r of rows.slice(hIdx + 1)) {
     const g = i => (i >= 0 && r[i] != null ? String(r[i]).trim() : '');
+    // Bunntekst: "Inngående saldo pr. 27.09.2025" / "Utgående saldo pr. 27.09.2026" = perioden filen dekker
+    const cov = r.join(' ').match(/(inngående|utgående)\s+saldo\s+pr\.?\s*(\d{2})\.(\d{2})\.(\d{4})/i);
+    if (cov) { coverage[/inng/i.test(cov[1]) ? 'from' : 'to'] = `${cov[4]}-${cov[3]}-${cov[2]}`; continue; }
     const d = g(c.date).match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
     if (!d) { if (r.some(x => x && x.trim())) skipped++; continue; }
     if (/reservert/i.test(g(c.status))) { reserved++; continue; }
@@ -349,7 +354,9 @@ function parseBankCSV(text) {
       amount: Math.round(amount * 100) / 100, msg: g(c.msg).replace(/\s+/g, ' '),
     });
   }
-  return { tx: out, skipped, reserved };
+  if (!coverage.from && out.length) coverage.from = out.reduce((a, t) => t.date < a ? t.date : a, out[0].date);
+  if (!coverage.to && out.length) coverage.to = out.reduce((a, t) => t.date > a ? t.date : a, out[0].date);
+  return { tx: out, skipped, reserved, coverage };
 }
 
 // Stabil ID for duplikatsjekk (samme kjøp importert to ganger)
@@ -524,7 +531,7 @@ const kr = n => fmt.format(Math.round(n)).replace(/\u00a0/g, ' ') + ' kr';
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function blank() { return { tx: [], rules: {}, budgets: {}, settings: { hideOneoff: true }, owner: '' }; }
+function blank() { return { tx: [], rules: {}, budgets: {}, settings: { hideOneoff: true, avgN: 6 }, owner: '', coverage: [] }; }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(LS));
@@ -595,12 +602,51 @@ function monthsInData() {
   return monthsCache;
 }
 function addMonths(ym, n) { let [y, m] = ym.split('-').map(Number); m += n; while (m < 1) { m += 12; y--; } while (m > 12) { m -= 12; y++; } return `${y}-${String(m).padStart(2, '0')}`; }
-function periodLabel(p) { if (p === '12m') return 'Siste 12 måneder'; const [y, m] = p.split('-'); return MONTHS[+m - 1] + ' ' + y; }
+function monShort(ym) { return MONTHS[+ym.slice(5) - 1].slice(0, 3) + ' ' + ym.slice(2, 4); }
+function periodLabel(p) {
+  if (p === '12m') return 'Siste 12 måneder';
+  if (p.startsWith('r:')) { const [, a, b] = p.split(':'); return a === b ? periodLabel(a) : `${monShort(a)} – ${monShort(b)}`; }
+  const [y, m] = p.split('-'); return MONTHS[+m - 1] + ' ' + y;
+}
 function inPeriod(t, p) {
   if (p === '12m') { const last = monthsInData().at(-1); return t.date.slice(0, 7) > addMonths(last, -12); }
+  if (p.startsWith('r:')) { const [, a, b] = p.split(':'), ym = t.date.slice(0, 7); return ym >= a && ym <= b; }
   return t.date.startsWith(p);
 }
-function periodMonths(p) { return p === '12m' ? Math.min(12, monthsInData().length) : 1; }
+function periodMonths(p) {
+  if (p === '12m') return Math.min(12, monthsInData().length);
+  if (p.startsWith('r:')) { const [, a, b] = p.split(':'); let n = 1, m = a; while (m < b) { m = addMonths(m, 1); n++; } return n; }
+  return 1;
+}
+// Hvilke datoer importerte filer dekker (fra bunnteksten i CSV-en)
+function addCoverage(from, to) {
+  const list = [...(S.coverage || []), [from, to]].sort((x, y) => x[0].localeCompare(y[0])), out = [];
+  for (const r of list) {
+    const last = out.at(-1);
+    if (last && Date.parse(r[0]) <= Date.parse(last[1]) + 864e5) { if (r[1] > last[1]) last[1] = r[1]; }
+    else out.push([...r]);
+  }
+  S.coverage = out;
+}
+function monthEnd(ym) { const [y, m] = ym.split('-').map(Number); return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`; }
+// Hele måneder = måneder der importen dekker fra 1. til siste dag
+function completeMonths() {
+  let cov = S.coverage && S.coverage.length ? S.coverage : null;
+  if (!cov) { const d = S.tx.map(t => t.date).sort(); cov = d.length ? [[d[0], d.at(-1)]] : []; }
+  return monthsInData().filter(m => cov.some(([a, b]) => a <= m + '-01' && b >= monthEnd(m)));
+}
+function avgWindow(n) { const all = completeMonths(); return n === 'alle' ? all : all.slice(-n); }
+function averages(months) {
+  const r = { inc: 0, exp: 0, transfer: 0, byMain: {}, bySub: {}, perMonth: [], hidden: 0 };
+  const k = months.length || 1;
+  for (const m of months) {
+    const t = totals(m); r.perMonth.push({ m, t }); r.hidden += t.hidden;
+    r.inc += t.inc / k; r.exp += t.exp / k; r.transfer += t.transfer / k;
+    for (const [c, v] of Object.entries(t.byMain)) r.byMain[c] = (r.byMain[c] || 0) + v / k;
+    for (const [c, v] of Object.entries(t.bySub)) r.bySub[c] = (r.bySub[c] || 0) + v / k;
+  }
+  return r;
+}
 
 // ===== Aggregering =====
 function totals(p) {
@@ -670,6 +716,7 @@ function emptyState() {
 
 function viewOverview() {
   if (!S.tx.length) return emptyState();
+  if (ui.period.startsWith('r:')) ui.period = monthsInData().at(-1);
   const p = ui.period, T = totals(p), n = periodMonths(p);
   const net = T.inc - T.exp;
   let html = periodBar();
@@ -746,11 +793,11 @@ function catSum(c, p) { let s = 0, n = 0; for (const t of S.tx) if (inPeriod(t, 
 // Kategori-filter med månedsbytte og sammenligning mot forrige måned
 function catPeriodBar() {
   const months = monthsInData(), p = ui.period, i = months.indexOf(p);
-  const prev = p === '12m' ? null : months[i - 1], next = p === '12m' ? null : months[i + 1];
+  const prev = i < 0 ? null : months[i - 1], next = i < 0 ? null : months[i + 1];
   const name = ui.cat.includes('/') ? catLabel(ui.cat) : CATS[ui.cat].name;
   const cur = catSum(ui.cat, p);
   let cmp = `${cur.n} ${cur.n === 1 ? 'transaksjon' : 'transaksjoner'}`;
-  if (p === '12m') cmp += ` · snitt ${kr(Math.abs(cur.s) / periodMonths(p))} per mnd`;
+  if (p === '12m' || p.startsWith('r:')) cmp += ` · snitt ${kr(Math.abs(cur.s) / periodMonths(p))} per mnd`;
   else if (prev) {
     const pr = catSum(ui.cat, prev), diff = Math.abs(cur.s) - Math.abs(pr.s), pm = MONTHS[+prev.slice(5) - 1];
     cmp += Math.abs(diff) < 0.5 ? ` · likt med ${pm}` : ` · ${kr(Math.abs(diff))} ${diff > 0 ? 'mer' : 'mindre'} enn ${pm} (${kr(Math.abs(pr.s))})`;
@@ -791,12 +838,53 @@ function viewTx() {
   return html;
 }
 
+function viewAvg() {
+  if (!S.tx.length) return emptyState();
+  const n = S.settings.avgN || 6, months = avgWindow(n), all = completeMonths();
+  const chips = [[3, '3 mnd'], [6, '6 mnd'], [12, '12 mnd'], ['alle', 'Alt']];
+  let html = `<h1 style="font-size:1.25rem;margin:8px 0 2px">Snitt per måned</h1>
+    <div class="chips" role="group" aria-label="Intervall">${chips.map(([v, l]) => `<button class="chip" data-avgn="${v}" aria-pressed="${String(n) === String(v)}">${l}</button>`).join('')}</div>`;
+  if (!months.length) return html + '<p class="muted">Ingen hele måneder i dataene ennå. Importer minst én hel måned.</p>';
+  const A = averages(months), net = A.inc - A.exp, rng = 'r:' + months[0] + ':' + months.at(-1);
+  html += `<p class="muted small" style="margin:4px 2px 12px">${cap(monShort(months[0]))} – ${monShort(months.at(-1))}, ${months.length} hele måneder${typeof n === 'number' && months.length < n ? ` (bare ${all.length} tilgjengelig)` : ''}. Påbegynte måneder regnes ikke med.</p>
+    <div class="figures">
+      <div><span>Inn</span><strong>${kr(A.inc)}</strong></div>
+      <div><span>Ut</span><strong>${kr(A.exp)}</strong></div>
+      <div><span>Igjen</span><strong class="${net >= 0 ? 'pos' : 'neg'}">${kr(net)}</strong></div></div>`;
+  const spread = key => { const v = A.perMonth.map(x => (key.includes('/') ? x.t.bySub[key] : x.t.byMain[key]) || 0); return [Math.min(...v), Math.max(...v)]; };
+  const rows = (items, total, mode) => `<ul class="list">${items.map(x => { const [lo, hi] = spread(x.id); return `<li><button class="row" ${mode === 'main' ? `data-avgdrill="${x.id}"` : `data-showcat="${x.id}" data-range="${rng}"`}>
+    <span class="dot" style="background:${x.color}"></span>
+    <span class="name">${esc(x.label)}<span class="pct">${Math.round(x.value / total * 100)} %</span></span>
+    <span class="num">${kr(x.value)}</span>
+    <span class="meter"><i style="width:${(x.value / total * 100).toFixed(1)}%;background:${x.color}"></i></span>
+    ${months.length > 1 ? `<span class="spread">Laveste ${kr(lo)} · høyeste ${kr(hi)}</span>` : ''}</button></li>`; }).join('')}</ul>`;
+  if (ui.avgDrill) {
+    const M = CATS[ui.avgDrill];
+    const items = Object.entries(M.subs).map(([s, name]) => ({ id: ui.avgDrill + '/' + s, label: name, value: A.bySub[ui.avgDrill + '/' + s] || 0 }))
+      .filter(x => x.value > 0.5).sort((a, b) => b.value - a.value);
+    const shades = shadeList(M.color, items.length); items.forEach((x, i) => x.color = shades[i]);
+    const tot = A.byMain[ui.avgDrill] || 0;
+    html += `<button class="back" data-avgdrill="">‹ Alle kategorier</button>
+      <div class="donut-wrap">${items.length ? donutSVG(items, M.name) : ''}<div class="donut-center"><div class="big num">${kr(tot)}</div><div class="cap">${esc(M.name)}<br>per måned</div></div></div>`;
+    html += items.length ? rows(items, tot, 'sub') : '';
+    html += `<div class="section"><button class="btn block" data-showcat="${ui.avgDrill}" data-range="${rng}">Vis alle transaksjoner i perioden</button></div>`;
+  } else {
+    const items = Object.entries(A.byMain).filter(([, v]) => v > 0.5)
+      .map(([m, v]) => ({ id: m, label: CATS[m].name, value: v, color: CATS[m].color })).sort((a, b) => b.value - a.value);
+    html += `<div class="donut-wrap">${donutSVG(items, 'Snittutgifter per kategori')}<div class="donut-center"><div class="big num">${kr(A.exp)}</div><div class="cap">brukt per måned</div></div></div>`;
+    html += rows(items, A.exp, 'main');
+  }
+  const bits = [];
+  if (Math.abs(A.transfer) > 0.5) bits.push(`Overføringer (${kr(A.transfer)} per mnd netto) er holdt utenfor.`);
+  if (A.hidden) bits.push(`${A.hidden} engangspost${A.hidden > 1 ? 'er' : ''} er skjult.`);
+  if (bits.length) html += `<p class="muted small" style="margin-top:10px">${bits.join(' ')}</p>`;
+  return html;
+}
+
 function viewBudget() {
   if (!S.tx.length) return emptyState();
-  const months = monthsInData(), cur = ui.period === '12m' ? months.at(-1) : ui.period;
-  // snitt av de 3 siste hele månedene før siste måned i datasettet (siste måned er ofte ufullstendig)
-  const idx = months.indexOf(months.at(-1));
-  const avgMonths = months.slice(Math.max(0, idx - 3), idx);
+  const months = monthsInData(), cur = ui.period.length === 7 ? ui.period : months.at(-1);
+  const avgMonths = avgWindow(S.settings.avgN || 6);
   const T = totals(cur);
   const avgs = {}; let avgInc = 0;
   for (const m of avgMonths) { const t = totals(m); avgInc += t.inc / avgMonths.length; for (const [k, v] of Object.entries(t.byMain)) avgs[k] = (avgs[k] || 0) + v / avgMonths.length; }
@@ -807,7 +895,7 @@ function viewBudget() {
       <div><span>Budsjettert</span><strong class="num">${kr(sumBudget)}</strong></div>
       <div><span>Brukt</span><strong class="num ${sumBudget && T.exp > sumBudget ? 'neg' : ''}">${kr(T.exp)}</strong></div>
       <div><span>Snitt inn</span><strong class="num">${kr(avgInc)}</strong></div></div>
-    <p class="muted small">Snitt er regnet fra ${avgMonths.map(m => MONTHS[+m.slice(5) - 1].slice(0, 3)).join(', ') || '–'}. Siste måned i dataene telles ikke, fordi den ofte ikke er ferdig.</p>
+    <p class="muted small">Snitt er regnet fra ${avgMonths.length ? `${monShort(avgMonths[0])} – ${monShort(avgMonths.at(-1))} (${avgMonths.length} hele måneder)` : '–'}, samme valg som i Snitt-fanen.</p>
     <div class="stack" style="margin:12px 0 16px"><button class="btn block" data-fillbudget>Fyll inn tomme felt med snittet</button></div>
     <ul class="list">`;
   for (const k of mains) {
@@ -946,7 +1034,8 @@ async function importTexts(items) {
   for (const f of items) {
     try {
       if (f.err) throw new Error(f.err);
-      const { tx, skipped, reserved } = parseBankCSV(f.text);
+      const { tx, skipped, reserved, coverage } = parseBankCSV(f.text);
+      if (coverage.from && coverage.to) addCoverage(coverage.from, coverage.to);
       const { added, dupes } = mergeTx(S.tx, tx);
       if (!S.owner) S.owner = detectOwner(tx);
       for (const t of added) t.key = merchantKey(t);
@@ -977,7 +1066,7 @@ async function restoreBackup(f) {
     const s = JSON.parse(await f.text());
     if (!Array.isArray(s.tx)) throw new Error('Filen er ikke en sikkerhetskopi fra denne appen.');
     if (!confirm(`Erstatte dagens data med ${s.tx.length} transaksjoner fra sikkerhetskopien?`)) return;
-    S = { ...blank(), tx: s.tx, rules: s.rules || {}, budgets: s.budgets || {}, settings: { ...blank().settings, ...(s.settings || {}) }, owner: s.owner || '' };
+    S = { ...blank(), tx: s.tx, rules: s.rules || {}, budgets: s.budgets || {}, settings: { ...blank().settings, ...(s.settings || {}) }, owner: s.owner || '', coverage: s.coverage || [] };
     autoMemo.clear(); save(); ui.period = monthsInData().at(-1) || null; render(); toast('Sikkerhetskopi gjenopprettet');
   } catch (e) { toast(e.message); }
 }
@@ -987,8 +1076,8 @@ let toastTimer;
 function toast(msg) { const el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
 
 function render() {
-  if (!ui.period || (ui.period !== '12m' && !monthsInData().includes(ui.period))) ui.period = monthsInData().at(-1) || null;
-  const v = { oversikt: viewOverview, tx: viewTx, budsjett: viewBudget, data: viewData }[ui.tab];
+  if (!ui.period || (ui.period !== '12m' && !ui.period.startsWith('r:') && !monthsInData().includes(ui.period))) ui.period = monthsInData().at(-1) || null;
+  const v = { oversikt: viewOverview, snitt: viewAvg, tx: viewTx, budsjett: viewBudget, data: viewData }[ui.tab];
   document.getElementById('app').innerHTML = v();
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === ui.tab ? 'page' : 'false'));
   const uk = uncategorizedCount();
@@ -1001,9 +1090,17 @@ document.addEventListener('click', e => {
   const d = el.dataset;
   if (d.tab) return go(d.tab);
   if ('period' in d && d.period) { ui.period = d.period; ui.drill = null; return render(); }
+  if (d.avgn) { S.settings.avgN = d.avgn === 'alle' ? 'alle' : +d.avgn; save(); return render(); }
+  if ('avgdrill' in d) { ui.avgDrill = d.avgdrill || null; render(); return window.scrollTo(0, 0); }
+  if (d.showcat && d.range) { ui.cat = d.showcat; ui.period = d.range; ui.kind = 'alle'; ui.q = ''; return go('tx'); }
   if (d.txperiod) { ui.period = d.txperiod; ui.limit = 60; return render(); }
   if ('toggle12' in d) { ui.period = ui.period === '12m' ? monthsInData().at(-1) : '12m'; return render(); }
   if (d.month) { ui.period = d.month; return render(); }
+  if (el.matches('circle.seg') && ui.tab === 'snitt') {
+    const ms = avgWindow(S.settings.avgN || 6), rng = 'r:' + ms[0] + ':' + ms.at(-1);
+    if (!ui.avgDrill) { ui.avgDrill = d.id; return render(); }
+    ui.cat = d.id; ui.period = rng; ui.kind = 'alle'; ui.q = ''; return go('tx');
+  }
   if (el.matches('circle.seg')) {
     if (!ui.drill) { ui.drill = d.id; return render(); }
     ui.cat = d.id; ui.kind = 'alle'; ui.q = ''; return go('tx');
@@ -1029,7 +1126,7 @@ document.addEventListener('click', e => {
   if ('wipe' in d) { if (confirm('Slette alle transaksjoner, regler og budsjett på denne enheten?')) { S = blank(); autoMemo.clear(); save(); render(); toast('Alle data er slettet'); } return; }
   if (d.delrule) { delete S.rules[d.delrule]; save(); return render(); }
   if ('fillbudget' in d) {
-    const months = monthsInData(), idx = months.length - 1, avgM = months.slice(Math.max(0, idx - 3), idx);
+    const avgM = avgWindow(S.settings.avgN || 6);
     const acc = {}; for (const m of avgM) for (const [k, v] of Object.entries(totals(m).byMain)) acc[k] = (acc[k] || 0) + v / avgM.length;
     let n = 0; for (const [k, v] of Object.entries(acc)) if (!S.budgets[k] && v > 0 && k !== 'ukat') { S.budgets[k] = Math.ceil(v / 100) * 100; n++; }
     save(); render(); return toast(n ? `Fylte inn ${n} mål, rundet opp til nærmeste hundrelapp.` : 'Alle felt har allerede et mål.');
