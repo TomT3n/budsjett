@@ -111,7 +111,7 @@ h2{font-size:1.15rem}
 .fold summary h2::before{content:'▸ '; color:var(--muted)}
 .fold[open] summary h2::before{content:'▾ '}
 .cand{padding:12px 14px}
-.cand .btns{display:flex; gap:8px; margin-top:8px}
+.cand .btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px}
 .cand .btns .btn{padding:8px 12px; font-size:.9rem}
 .flag{font-size:.72rem; font-weight:500; border:1px solid var(--line); border-radius:6px; padding:0 5px; color:var(--muted); vertical-align:1px}
 .flag.warn{border-color:var(--warn); color:var(--warn)}
@@ -1116,9 +1116,25 @@ function detectDeals() {
     const e = groups.get(t.key) || { key: t.key, cat, g, tx: [] }; e.tx.push(t); e.cat = cat; e.g = g; groups.set(t.key, e);
   }
   const out = [];
+  // Betalingsformidlere (Google Play, App Store, PayPal) samler flere abonnementer under ett navn.
+  // Da deles trekkene opp i grupper etter beløp, og hver gruppe blir sin egen avtale.
+  const units = [];
   for (const e of groups.values()) {
+    const split = S.deals[e.key]?.split ?? AGGREGATOR.test(e.key);
+    if (!split) { units.push({ ...e, base: e.key }); continue; }
+    const byAmt = [...e.tx].sort((a, b) => a.amount - b.amount), clusters = [];
+    for (const t of byAmt) {
+      const c = clusters.find(c => Math.abs(-t.amount - c.ref) <= c.ref * .15);
+      if (c) { c.tx.push(t); c.ref = median(c.tx.map(x => -x.amount)); } else clusters.push({ ref: -t.amount, tx: [t] });
+    }
+    for (const c of clusters) {
+      const med = Math.round(median(c.tx.map(t => -t.amount)));
+      units.push({ ...e, key: `${e.key}#${med}`, base: e.key, tx: c.tx, suffix: ` · ${kr(med)}` });
+    }
+  }
+  for (const e of units) {
     const d = S.deals[e.key] || {};
-    if (d.status === 'ignore') continue;
+    if (d.status === 'ignore' || (e.base !== e.key && S.deals[e.base]?.status === 'ignore' && !S.deals[e.key])) continue;
     const occ = e.tx.sort((a, b) => a.date.localeCompare(b.date)), amts = occ.map(t => -t.amount), med = median(amts);
     const reg = occ.filter(t => Math.abs(-t.amount - med) <= med * .25);
     const ms = [...new Set(occ.map(t => t.date.slice(0, 7)))].sort();
@@ -1133,12 +1149,12 @@ function detectDeals() {
     const change = prevReg && Math.abs(price + prevReg.amount) >= 5 && Math.abs(price + prevReg.amount) / -prevReg.amount >= .05
       ? { from: -prevReg.amount, to: price, date: lastReg.date } : null;
     let state;
-    if (d.status === 'ended') state = 'ended';
-    else if (d.status === 'active') state = 'active';
+    if (d.status === 'ended' && !(d.endedAt && last.date > d.endedAt)) state = 'ended';
+    else if (d.status === 'active' || (d.status === 'ended' && d.endedAt && last.date > d.endedAt)) state = 'active';
     else if (ev) state = addMonthsISO(last.date, ev) >= addMonthsISO(end, 0).slice(0, 10) || daysBetween(addMonthsISO(last.date, ev), end) <= 12 ? 'active' : 'ended';
     else state = daysBetween(last.date, end) <= 400 ? 'candidate' : 'old';
     if (state === 'old') continue;
-    out.push({ key: e.key, name: d.name || niceName(last), group: d.group || e.g, cat: e.cat, price, every: ev || 1, guessed: !ev,
+    out.push({ key: e.key, base: e.base, split: e.base !== e.key, name: d.name || niceName(last) + (e.suffix || ''), group: d.group || e.g, cat: e.cat, price, every: ev || 1, guessed: !ev,
       last: last.date, next: addMonthsISO(last.date, ev || 1), change, state, count: occ.length, note: d.note || '', link: d.link || '', tx: occ });
   }
   // Avtaler lagt inn manuelt
@@ -1149,6 +1165,7 @@ function detectDeals() {
   }
   return dealCache = out.sort((a, b) => b.price / b.every - a.price / a.every);
 }
+const AGGREGATOR = /GOOGLE PLAY|APPLE|APP STORE|ITUNES|PAYPAL/;
 function daysBetween(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 864e5); }
 function perMonth(x) { return x.price / x.every; }
 
@@ -1179,9 +1196,9 @@ function viewDeals() {
   }
   if (!active.length) html += '<p class="muted" style="margin-top:16px">Fant ingen aktive abonnementer eller forsikringer ennå.</p>';
   if (cand.length) html += `<details class="section fold" ${cand.some(x => daysBetween(x.last, end) <= 45) ? 'open' : ''}><summary><h2>Mulige avtaler</h2><span class="muted small">${cand.length}</span></summary>
-    <p class="muted small">Trukket bare én gang eller uregelmessig. Er det et abonnement, trykker du Legg til. Nye abonnementer dukker opp her til de er trukket to ganger.</p>
+    <p class="muted small">Trukket bare én gang eller uregelmessig. <b>Aktiv:</b> du betaler fortsatt. <b>Avsluttet:</b> det var et abonnement, men du har sagt det opp. <b>Ikke avtale:</b> skjules helt, for eksempel enkeltkjøp. Nye abonnementer dukker opp her til de er trukket to ganger.</p>
     <ul class="list">${cand.map(x => `<li class="cand"><div><b>${esc(x.name)}</b> <span class="num">${kr(x.price)}</span><br><span class="small muted">${x.count === 1 ? 'Én gang' : x.count + ' ganger'}, sist ${shortDate(x.last)} · ${esc(catLabel(x.cat))}</span></div>
-      <div class="btns"><button class="btn primary" data-dealadd="${esc(x.key)}">Legg til</button><button class="btn" data-dealignore="${esc(x.key)}">Ignorer</button></div></li>`).join('')}</ul></details>`;
+      <div class="btns"><button class="btn primary" data-dealadd="${esc(x.key)}">Aktiv</button><button class="btn" data-dealend="${esc(x.key)}">Avsluttet</button><button class="btn" data-dealignore="${esc(x.key)}">Ikke avtale</button></div></li>`).join('')}</ul></details>`;
   if (ended.length) html += `<details class="section fold"><summary><h2>Avsluttet</h2><span class="muted small">${ended.length}</span></summary>
     <p class="muted small">Ikke trukket når neste trekk var ventet, ut fra dataene som går til ${shortDate(end)}.</p>
     <ul class="list">${ended.map(row).join('')}</ul></details>`;
@@ -1203,6 +1220,7 @@ function openDealSheet(key, isNew) {
       ${x.manual ? `<label>Pris<input id="dPrice" inputmode="decimal" value="${x.price || ''}" placeholder="0"></label>` : ''}
       <label>Trekkes<select id="dEvery">${Object.entries(EVERY).map(([k, v]) => `<option value="${k}" ${+k === x.every ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
       <label>Hva er inkludert (notat)<textarea id="dNote" rows="3" placeholder="For eksempel 20 GB data, fri tale">${esc(x.note)}</textarea></label>
+      ${!isNew && !x.manual ? `<label class="check"><input type="checkbox" id="dSplit" ${x.split ? 'checked' : ''}><span>Del opp etter beløp<br><span class="muted small">For Google Play, App Store og lignende som samler flere abonnementer under samme navn. Hvert beløp blir da sin egen avtale som du kan gi navn.</span></span></label>` : ''}
       <label>Lenke til avtalen (valgfritt)<input id="dLink" inputmode="url" value="${esc(x.link)}" placeholder="https://drive.google.com/…"></label>
       ${safeLink ? `<a class="btn block" href="${esc(safeLink)}" target="_blank" rel="noopener">Åpne avtalen</a>` : ''}
     </div>
@@ -1226,7 +1244,10 @@ function saveDeal() {
   d.every = +document.getElementById('dEvery').value;
   d.note = document.getElementById('dNote').value.trim();
   d.link = document.getElementById('dLink').value.trim();
-  S.deals[key] = d; save(); closeSheet(); render(); toast('Lagret');
+  S.deals[key] = d;
+  const sp = document.getElementById('dSplit'), x = detectDeals().find(y => y.key === key);
+  if (sp && x && sp.checked !== x.split) { const b = x.base || key; S.deals[b] = { ...(S.deals[b] || {}), split: sp.checked }; if (S.deals[b].status === 'ignore') delete S.deals[b].status; }
+  save(); closeSheet(); render(); toast(sp && x && sp.checked !== x.split ? (sp.checked ? 'Delt opp etter beløp' : 'Slått sammen igjen') : 'Lagret');
 }
 
 // ===== Formue =====
@@ -1655,7 +1676,8 @@ document.addEventListener('click', e => {
   if ('dealsave' in d) return saveDeal();
   if (d.dealadd) { S.deals[d.dealadd] = { ...(S.deals[d.dealadd] || {}), status: 'active' }; save(); render(); return toast('Lagt til. Trykk på den for å endre hvor ofte den trekkes.'); }
   if (d.dealignore) { const k = d.dealignore; if (S.deals[k]?.manual) delete S.deals[k]; else S.deals[k] = { ...(S.deals[k] || {}), status: 'ignore' }; save(); if (ui.sheet === '__deal') closeSheet(); return render(); }
-  if (d.dealstatus) { const k = ui.dealKey; S.deals[k] = { ...(S.deals[k] || {}), status: d.dealstatus }; save(); closeSheet(); return render(); }
+  if (d.dealstatus) { const k = ui.dealKey; S.deals[k] = { ...(S.deals[k] || {}), status: d.dealstatus, endedAt: d.dealstatus === 'ended' ? dataSpan().to : undefined }; save(); closeSheet(); return render(); }
+  if (d.dealend) { S.deals[d.dealend] = { ...(S.deals[d.dealend] || {}), status: 'ended', endedAt: dataSpan().to }; save(); render(); return toast('Flyttet til Avsluttet. Blir den trukket igjen, dukker den opp som aktiv.'); }
   if ('menu' in d) return openMenu();
   if (d.menugo) { closeSheet(); return go(d.menugo); }
   if (d.wsuggest) return openWealthSheet('new:debt', ui.suggest[+d.wsuggest]);
