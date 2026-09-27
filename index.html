@@ -38,8 +38,7 @@ html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%}
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0; min-height:100%; background:var(--bg); color:var(--ink);
   font-family:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  font-size:16px; line-height:1.45; -webkit-font-smoothing:antialiased;
-  font-variant-numeric:tabular-nums; padding-bottom:84px}
+  font-size:16px; line-height:1.45; -webkit-font-smoothing:antialiased; padding-bottom:84px}
 button,input,select{font:inherit; color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
@@ -48,7 +47,7 @@ h1,h2,h3{margin:0; font-weight:700; letter-spacing:-.01em}
 h2{font-size:1.15rem}
 .muted{color:var(--muted)}
 .small{font-size:.85rem}
-.num{white-space:nowrap}
+.num,.figures strong,.amt,.budget-row input,.bars text{white-space:nowrap; font-variant-numeric:tabular-nums}
 
 /* Periodevelger */
 .period{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0 12px}
@@ -102,7 +101,7 @@ h2{font-size:1.15rem}
 .chips{display:flex; gap:8px; overflow-x:auto; padding:10px 0 4px; scrollbar-width:none}
 .chip{flex:none; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:7px 13px; font-size:.9rem}
 .chip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
-.day{font-size:.8rem; color:var(--muted); margin:16px 2px 6px; text-transform:capitalize}
+.day{font-size:.8rem; color:var(--muted); margin:16px 2px 6px}
 .tx{display:grid; grid-template-columns:1fr auto; gap:2px 12px; width:100%; text-align:left; background:none; border:0; padding:11px 14px}
 .tx .who{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .tx .amt{font-weight:700; text-align:right}
@@ -110,7 +109,14 @@ h2{font-size:1.15rem}
 .tx .cat .dot{width:8px; height:8px; border-radius:3px; flex:none}
 .tx .flag{font-size:.72rem; border:1px solid var(--line); border-radius:6px; padding:0 5px}
 .tx.ukat .cat{color:var(--warn); font-weight:600}
-.filterbar{display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:8px 12px; margin-top:10px}
+.filterbar{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:10px 12px 12px; margin-top:10px}
+.filterbar .top{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.filterbar .top b{font-size:.95rem}
+.filterbar .close{border:0; background:none; color:var(--accent); font-weight:600; padding:6px 4px; white-space:nowrap}
+.filterbar .period{margin:6px 0 2px}
+.filterbar .period .label{font-size:1.05rem}
+.filterbar .sum{text-align:center; font-size:1.5rem; font-weight:800}
+.filterbar .cmp{text-align:center; font-size:.85rem; color:var(--muted)}
 .more{display:block; margin:14px auto 0; border:1px solid var(--line); background:var(--surface); border-radius:12px; padding:10px 16px}
 
 /* Budsjett */
@@ -735,22 +741,45 @@ function filteredTx() {
   }).sort((a, b) => b.date.localeCompare(a.date) || a.amount - b.amount);
 }
 
+function inCat(t, c) { const cat = catOf(t); return c.includes('/') ? cat === c : mainOf(cat) === c; }
+function catSum(c, p) { let s = 0, n = 0; for (const t of S.tx) if (inPeriod(t, p) && inCat(t, c)) { s += t.amount; n++; } return { s, n }; }
+// Kategori-filter med månedsbytte og sammenligning mot forrige måned
+function catPeriodBar() {
+  const months = monthsInData(), p = ui.period, i = months.indexOf(p);
+  const prev = p === '12m' ? null : months[i - 1], next = p === '12m' ? null : months[i + 1];
+  const name = ui.cat.includes('/') ? catLabel(ui.cat) : CATS[ui.cat].name;
+  const cur = catSum(ui.cat, p);
+  let cmp = `${cur.n} ${cur.n === 1 ? 'transaksjon' : 'transaksjoner'}`;
+  if (p === '12m') cmp += ` · snitt ${kr(Math.abs(cur.s) / periodMonths(p))} per mnd`;
+  else if (prev) {
+    const pr = catSum(ui.cat, prev), diff = Math.abs(cur.s) - Math.abs(pr.s), pm = MONTHS[+prev.slice(5) - 1];
+    cmp += Math.abs(diff) < 0.5 ? ` · likt med ${pm}` : ` · ${kr(Math.abs(diff))} ${diff > 0 ? 'mer' : 'mindre'} enn ${pm} (${kr(Math.abs(pr.s))})`;
+  }
+  return `<div class="filterbar">
+    <div class="top"><b>${esc(name)}</b><button class="close" data-clearcat aria-label="Fjern kategorifilter">Fjern ✕</button></div>
+    <div class="period">
+      <button class="arrow" data-txperiod="${prev || ''}" ${prev ? '' : 'disabled'} aria-label="Forrige måned">‹</button>
+      <button class="label" data-toggle12 aria-label="Bytt mellom måned og siste 12 måneder">${cap(periodLabel(p))}</button>
+      <button class="arrow" data-txperiod="${next || ''}" ${next ? '' : 'disabled'} aria-label="Neste måned">›</button></div>
+    <div class="sum num">${kr(cur.s)}</div>
+    <div class="cmp">${cmp}</div></div>`;
+}
 function viewTx() {
   if (!S.tx.length) return emptyState();
   const kinds = [['alle', 'Alle'], ['ukat', 'Ukategorisert'], ['antatt', 'Antatt fra Vipps'], ['exp', 'Utgifter'], ['inc', 'Inntekter'], ['transfer', 'Overføringer'], ['oneoff', 'Engangsposter']];
   let html = `<input class="search" type="search" placeholder="Søk etter butikk, person eller beløp" value="${esc(ui.q)}" data-search aria-label="Søk">
     <div class="chips" role="group" aria-label="Filter">${kinds.map(([k, l]) => `<button class="chip" data-kind="${k}" aria-pressed="${ui.kind === k}">${l}</button>`).join('')}</div>`;
-  if (ui.cat) html += `<div class="filterbar"><span class="small">${esc(ui.cat.includes('/') ? catLabel(ui.cat) : CATS[ui.cat].name)} · ${esc(periodLabel(ui.period))}</span><button class="link" data-clearcat>Fjern filter</button></div>`;
+  if (ui.cat) html += catPeriodBar();
   const list = filteredTx();
   if (!list.length) return html + `<p class="muted" style="margin-top:24px">Ingen transaksjoner passer filteret.</p>`;
   const shown = list.slice(0, ui.limit); let lastDay = '';
   const dayFmt = new Intl.DateTimeFormat('nb-NO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  html += `<p class="muted small" style="margin:8px 2px 0">${list.length} transaksjoner · sum ${kr(list.reduce((a, t) => a + t.amount, 0))}</p>`;
+  if (!ui.cat) html += `<p class="muted small" style="margin:8px 2px 0">${list.length} ${list.length === 1 ? 'transaksjon' : 'transaksjoner'} · sum ${kr(list.reduce((a, t) => a + t.amount, 0))}</p>`;
   let open = false;
   for (const t of shown) {
     if (t.date !== lastDay) {
       if (open) html += '</ul>';
-      html += `<div class="day">${dayFmt.format(new Date(t.date + 'T12:00'))}</div><ul class="list">`; open = true; lastDay = t.date;
+      html += `<div class="day">${cap(dayFmt.format(new Date(t.date + 'T12:00')))}</div><ul class="list">`; open = true; lastDay = t.date;
     }
     const cat = catOf(t), uk = cat === 'ukat/ukat';
     html += `<li><button class="tx ${uk ? 'ukat' : ''}" data-tx="${esc(t.id)}">
@@ -972,6 +1001,7 @@ document.addEventListener('click', e => {
   const d = el.dataset;
   if (d.tab) return go(d.tab);
   if ('period' in d && d.period) { ui.period = d.period; ui.drill = null; return render(); }
+  if (d.txperiod) { ui.period = d.txperiod; ui.limit = 60; return render(); }
   if ('toggle12' in d) { ui.period = ui.period === '12m' ? monthsInData().at(-1) : '12m'; return render(); }
   if (d.month) { ui.period = d.month; return render(); }
   if (el.matches('circle.seg')) {
