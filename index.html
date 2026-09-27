@@ -1228,8 +1228,7 @@ function openDealSheet(key, isNew) {
     ${!isNew ? `<div class="stack" style="margin-top:12px">${x.state === 'active' ? '<button class="btn block" data-dealstatus="ended">Marker som avsluttet</button>' : '<button class="btn block" data-dealstatus="active">Marker som aktiv</button>'}
       <button class="btn block danger" data-dealignore="${esc(x.key)}">${x.manual ? 'Slett avtalen' : 'Ikke en avtale (skjul)'}</button></div>` : ''}
     <div class="sheet-actions"><button class="btn" data-sclose>Avbryt</button><button class="btn primary" data-dealsave>Lagre</button></div>`;
-  document.getElementById('overlay').classList.add('open');
-  requestAnimationFrame(() => document.getElementById('sheet').classList.add('open'));
+  showSheet();
 }
 function saveDeal() {
   const key = ui.dealKey, d = S.deals[key] || {};
@@ -1421,8 +1420,7 @@ function openWealthSheet(id, pre) {
       ${isNew ? '<button class="btn" data-sclose>Avbryt</button>' : '<button class="btn danger" data-wdelete>Slett</button>'}
       <button class="btn primary" data-wsave>Lagre</button></div>`;
   wealthHint();
-  document.getElementById('overlay').classList.add('open');
-  requestAnimationFrame(() => document.getElementById('sheet').classList.add('open'));
+  showSheet();
 }
 function wealthHint() {
   const box = document.getElementById('wHint'); if (!box) return;
@@ -1519,8 +1517,7 @@ function bigBox(t) {
 function openSheet(id) {
   const t = S.tx.find(x => x.id === id); if (!t) return;
   ui.sheet = id; const cur = catOf(t); ui.sheetMain = mainOf(cur); ui.sheetCat = cur;
-  renderSheet(); document.getElementById('overlay').classList.add('open');
-  requestAnimationFrame(() => document.getElementById('sheet').classList.add('open'));
+  renderSheet(); showSheet();
 }
 function n2() { renderSheet(); render(); }
 function openPaste() {
@@ -1529,11 +1526,58 @@ function openPaste() {
     <p class="muted small">Åpne CSV-filen i en teksteditor, kopier alt og lim inn her.</p>
     <textarea class="paste" id="pasteBox" placeholder="Utført dato;Bokført dato;…"></textarea>
     <div class="sheet-actions"><button class="btn" data-sclose>Avbryt</button><button class="btn primary" data-paste-import>Importer</button></div>`;
+  showSheet();
+}
+function hideSheet() {
+  document.getElementById('sheet').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); ui.sheet = null;
+}
+function showSheet() {
   document.getElementById('overlay').classList.add('open');
   requestAnimationFrame(() => document.getElementById('sheet').classList.add('open'));
+  if (!nav.sheetEntry) { nav.sheetEntry = true; history.pushState({ ...navState(), i: nav.idx, sheet: 1 }, ''); }
 }
 function closeSheet() {
-  document.getElementById('sheet').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); ui.sheet = null;
+  hideSheet();
+  if (nav.sheetEntry) { nav.sheetEntry = false; nav.closing = true; history.back(); }
+}
+
+// ===== Tilbake-knapp (Android) og oppdatering =====
+// Hvert «lag» (fane, kategori, underkategori, ark) blir et steg i nettleserhistorikken.
+// Tilbake-bevegelsen går da ett lag opp i stedet for å lukke appen, og en oppdatering
+// (dra ned) beholder fanen du står i.
+const NAV_KEYS = ['tab', 'drill', 'avgDrill', 'cat', 'kind', 'period'];
+const nav = { idx: 0, stack: [], restoring: false, expectPop: false, closing: false, sheetEntry: false };
+function navState() { const o = {}; for (const k of NAV_KEYS) o[k] = ui[k] ?? null; return o; }
+function navSig(s) { return [s.tab, s.drill, s.avgDrill, s.cat, s.kind].join('|'); }
+function syncHistory() {
+  if (nav.restoring || nav.closing || nav.sheetEntry || nav.expectPop) return;
+  const cur = navState(), sig = navSig(cur), h = history.state;
+  if (!h || h.i == null) { nav.idx = 0; nav.stack = [sig]; history.replaceState({ ...cur, i: 0 }, ''); return; }
+  if (navSig(h) === sig) { nav.stack[nav.idx] = sig; history.replaceState({ ...cur, i: nav.idx }, ''); return; }
+  if (nav.idx > 0 && nav.stack[nav.idx - 1] === sig) { nav.idx--; nav.expectPop = true; history.back(); return; }
+  nav.stack.splice(nav.idx + 1); nav.idx++; nav.stack[nav.idx] = sig;
+  history.pushState({ ...cur, i: nav.idx }, '');
+}
+window.addEventListener('popstate', e => {
+  if (nav.closing) { nav.closing = false; syncHistory(); return; }
+  if (nav.expectPop) { nav.expectPop = false; history.replaceState({ ...navState(), i: nav.idx }, ''); return; }
+  if (nav.sheetEntry) { nav.sheetEntry = false; hideSheet(); return; }
+  const st = e.state; if (!st) return;
+  const same = navSig(st) === navSig(navState());
+  nav.idx = st.i ?? 0; nav.stack[nav.idx] = navSig(st);
+  if (same) { history.back(); return; } // hopp over dubletter
+  nav.restoring = true;
+  for (const k of NAV_KEYS) ui[k] = st[k];
+  ui.limit = 60; render(); window.scrollTo(0, 0);
+  nav.restoring = false;
+});
+function restoreNavOnLoad() {
+  const h = history.state;
+  if (h && h.tab) {
+    for (const k of NAV_KEYS) if (h[k] !== undefined) ui[k] = h[k];
+    nav.idx = h.i ?? 0; nav.stack[nav.idx] = navSig(h);
+    if (h.sheet) history.replaceState({ ...navState(), i: nav.idx }, '');
+  }
 }
 function renderSheet() {
   const t = S.tx.find(x => x.id === ui.sheet); if (!t) return;
@@ -1655,13 +1699,13 @@ function openMenu() {
       ${item('data', 'Import og sikkerhetskopi', sp ? `Data til ${shortDate(sp.to)} · kopi ${S.lastBackup ? `for ${bAge} dager siden` : 'aldri tatt'}` : 'Importer CSV fra nettbanken', S.tx.length && (bAge == null || bAge > 30 || daysSince(sp.to) > 30))}
       ${item('innst', 'Innstillinger', 'Tema, engangsposter, lærte regler og egne navn', false)}
     </ul>`;
-  document.getElementById('overlay').classList.add('open');
-  requestAnimationFrame(() => document.getElementById('sheet').classList.add('open'));
+  showSheet();
 }
 function render() {
   if (!ui.period || (ui.period !== '12m' && !ui.period.startsWith('r:') && !monthsInData().includes(ui.period))) ui.period = monthsInData().at(-1) || null;
   const v = { oversikt: viewOverview, snitt: viewAvg, tx: viewTx, budsjett: viewBudget, formue: viewWealth, avtaler: viewDeals, data: viewData, innst: viewSettings }[ui.tab];
   document.getElementById('app').innerHTML = appBar() + v();
+  syncHistory();
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === ui.tab ? 'page' : 'false'));
 }
 function go(tab) { ui.tab = tab; ui.limit = 60; render(); window.scrollTo(0, 0); }
@@ -1768,6 +1812,7 @@ function applyThemeColor() {
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyThemeColor);
 if (S.settings.theme) document.documentElement.dataset.theme = S.settings.theme;
+restoreNavOnLoad();
 applyThemeColor();
 render();
 
