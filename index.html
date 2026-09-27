@@ -1746,7 +1746,9 @@ window.addEventListener('popstate', e => {
   nav.idx = st.i ?? 0; nav.stack[nav.idx] = navSig(st);
   if (same) { history.back(); return; } // hopp over dubletter
   nav.restoring = true;
-  for (const k of NAV_KEYS) ui[k] = st[k];
+  // Behold måneden du har bladd til, med mindre en av dem er et snitt-område
+  const keepPeriod = ui.period && st.period && !String(ui.period).startsWith('r:') && !String(st.period).startsWith('r:');
+  for (const k of NAV_KEYS) if (!(k === 'period' && keepPeriod)) ui[k] = st[k];
   ui.limit = 60; render(); window.scrollTo(0, 0);
   nav.restoring = false;
 });
@@ -1920,7 +1922,7 @@ document.addEventListener('click', e => {
   const d = el.dataset;
   if ('histback' in d) return history.back();
   if (d.tab) return MAIN_TABS.includes(d.tab) ? switchTab(d.tab) : go(d.tab);
-  if ('period' in d && d.period) { ui.period = d.period; ui.drill = null; return render(); }
+  if ('period' in d && d.period) { ui.period = d.period; return render(); }
   if (d.deal) return openDealSheet(d.deal);
   if ('dealnew' in d) return openDealSheet(null, true);
   if ('dealsave' in d) return saveDeal();
