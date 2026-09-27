@@ -151,6 +151,9 @@ h2{font-size:1.15rem}
 .bars{display:block; width:100%; height:auto; background:var(--surface); border:1px solid var(--line); border-radius:14px}
 .bars .hit{fill:transparent; cursor:pointer}
 .bars text{font-size:10px; fill:var(--muted); font-family:inherit}
+.bars text.val{font-size:9px; fill:var(--ink); font-weight:600}
+.readout{font-size:.82rem; color:var(--muted); margin:6px 2px 0}
+.readout b{color:var(--ink)}
 .legend{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:.8rem; color:var(--muted); margin-top:6px}
 .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
 
@@ -210,7 +213,7 @@ nav.tabs button[aria-current="page"]{color:var(--ink); font-weight:700}
 /* Ark */
 .overlay{position:fixed; inset:0; background:rgba(10,25,30,.45); z-index:20; display:none}
 .overlay.open{display:block}
-.sheet{position:fixed; left:0; right:0; bottom:0; z-index:21; background:var(--surface); border-radius:20px 20px 0 0;
+.sheet{overscroll-behavior:contain; position:fixed; left:0; right:0; bottom:0; z-index:21; background:var(--surface); border-radius:20px 20px 0 0;
   box-shadow:var(--sheet-shadow); max-height:88%; overflow:auto; padding:8px 16px calc(16px + env(safe-area-inset-bottom,0px));
   transform:translateY(105%); visibility:hidden; transition:transform .22s ease-out, visibility 0s linear .22s; max-width:640px; margin:0 auto}
 .sheet.open{transform:none; visibility:visible; transition:transform .22s ease-out}
@@ -824,25 +827,35 @@ function donutSVG(items, label) {
   return `<svg class="donut" viewBox="0 0 200 200" role="img" aria-label="${esc(label)}">
     <circle r="${R}" cx="100" cy="100" fill="none" stroke="var(--line)" stroke-width="26"/>${segs}</svg>`;
 }
-function barsSVG(active) {
-  const months = monthsInData(); if (!months.length) return '';
-  const last = months.at(-1), list = []; for (let i = 11; i >= 0; i--) list.push(addMonths(last, -i));
-  const data = list.map(m => { const t = totals(m); return { m, inc: t.inc, exp: t.exp }; });
-  const max = Math.max(1, ...data.map(d => Math.max(d.inc, d.exp)));
-  const W = 340, H = 150, top = 12, bottom = 22, colW = W / 12, bw = colW * .3, h = H - top - bottom;
-  const out = data.map((d, i) => {
-    const x = i * colW + colW / 2, hi = d.inc / max * h, he = d.exp / max * h, act = d.m === active;
-    return `<g>${act ? `<rect x="${i * colW + 1}" y="2" width="${colW - 2}" height="${H - 4}" rx="6" fill="var(--bg)"/>` : ''}
-      <g opacity="${partialNote(d.m) ? .4 : 1}"><rect x="${x - bw - 1}" y="${top + h - hi}" width="${bw}" height="${Math.max(hi, .5)}" rx="2" fill="var(--good)"/>
-      <rect x="${x + 1}" y="${top + h - he}" width="${bw}" height="${Math.max(he, .5)}" rx="2" fill="var(--accent)"/></g>
-      <text x="${x}" y="${H - 7}" text-anchor="middle" ${act ? 'style="fill:var(--ink);font-weight:700"' : ''}>${MONTHS[+d.m.slice(5) - 1].slice(0, 3)}</text>
-      <rect class="hit" data-month="${d.m}" x="${i * colW}" y="0" width="${colW}" height="${H}"><title>${periodLabel(d.m)}: inn ${kr(d.inc)}, ut ${kr(d.exp)}</title></rect></g>`;
-  }).join('');
-  return `<svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Inntekter og utgifter per måned">${out}</svg>
-    <div class="legend"><span><i style="background:var(--good)"></i>Inn</span><span><i style="background:var(--accent)"></i>Ut</span><span>Lysere = ufullstendig måned. Trykk for å åpne.</span></div>`;
+// Pene akseverdier
+function niceTicks(lo, hi, max = 4) {
+  const span = hi - lo || 1, raw = span / max, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= max) || 10 * mag;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10)); return out;
 }
-
-// ===== Visninger =====
+function kShort(v) { const a = Math.abs(v); return a >= 1000 ? (v / 1000).toLocaleString('nb-NO', { maximumFractionDigits: a >= 10000 ? 0 : 1 }) + 'k' : String(Math.round(v)); }
+const AX = 30; // plass til y-aksen
+function barsSVG(active) {
+  const list = last12(); if (!list.length) return '';
+  const data = list.map(m => { const t = totals(m); return { m, inc: t.inc, exp: t.exp }; });
+  const max = Math.max(1, ...data.map(d => Math.max(d.inc, d.exp))), ticks = niceTicks(0, max);
+  const top0 = Math.max(max, ticks.at(-1));
+  const W = 340, H = 160, top = 10, bottom = 22, colW = (W - AX) / 12, bw = colW * .3, h = H - top - bottom;
+  const y = v => top + h - v / top0 * h;
+  const grid = ticks.map(v => `<line x1="${AX}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${v === 0 ? 1 : .6}"/><text x="${AX - 4}" y="${y(v) + 3}" text-anchor="end">${kShort(v)}</text>`).join('');
+  const out = data.map((d, i) => {
+    const x = AX + i * colW + colW / 2, act = d.m === active;
+    return `<g>${act ? `<rect x="${AX + i * colW + 1}" y="2" width="${colW - 2}" height="${H - 4}" rx="6" fill="var(--bg)" opacity=".7"/>` : ''}
+      <g opacity="${partialNote(d.m) ? .4 : 1}"><rect x="${x - bw - 1}" y="${y(d.inc)}" width="${bw}" height="${Math.max(top + h - y(d.inc), .5)}" rx="2" fill="var(--good)"/>
+      <rect x="${x + 1}" y="${y(d.exp)}" width="${bw}" height="${Math.max(top + h - y(d.exp), .5)}" rx="2" fill="var(--accent)"/></g>
+      <text x="${x}" y="${H - 7}" text-anchor="middle" ${act ? 'style="fill:var(--ink);font-weight:700"' : ''}>${MONTHS[+d.m.slice(5) - 1].slice(0, 3)}</text>
+      <rect class="hit" data-month="${d.m}" x="${AX + i * colW}" y="0" width="${colW}" height="${H}"></rect></g>`;
+  }).join('');
+  const a = data.find(d => d.m === active);
+  return `<svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Inntekter og utgifter per måned">${grid}${out}</svg>
+    ${a ? `<p class="readout"><b>${cap(periodLabel(a.m))}:</b> inn ${kr(a.inc)} · ut ${kr(a.exp)} · igjen <span class="${a.inc - a.exp >= 0 ? 'pos' : 'neg'}">${kr(a.inc - a.exp)}</span></p>` : ''}
+    <div class="legend"><span><i style="background:var(--good)"></i>Inn</span><span><i style="background:var(--accent)"></i>Ut</span><span>Lysere = ufullstendig måned. Trykk på en måned for å åpne den.</span></div>`;
+}
 function periodBar() {
   const months = monthsInData(), p = ui.period, i = months.indexOf(p);
   const prev = p === '12m' ? null : months[i - 1], next = p === '12m' ? null : months[i + 1];
@@ -1033,34 +1046,42 @@ function rateSVG(active) {
   const list = last12(); if (!list.length) return '';
   const data = list.map(m => { const t = totals(m, { noOneoff: !S.settings.oneoffInAvg }); return { m, r: t.inc > 0 ? (t.inc - t.exp) / t.inc : null, partial: !!partialNote(m) }; });
   const vals = data.filter(d => d.r != null).map(d => d.r); if (!vals.length) return '';
-  const lo = Math.min(0, ...vals), hi = Math.max(0.1, ...vals), W = 340, H = 130, top = 12, bottom = 22, h = H - top - bottom, colW = W / 12;
-  const y = v => top + (hi - v) / (hi - lo) * h;
-  const full = data.filter(d => d.r != null && !d.partial);
-  const line = full.map((d, i) => `${i ? 'L' : 'M'}${(list.indexOf(d.m) * colW + colW / 2).toFixed(1)},${y(d.r).toFixed(1)}`).join('');
+  const ticks = niceTicks(Math.min(0, ...vals), Math.max(0.1, ...vals));
+  const lo = Math.min(ticks[0], ...vals), hi = Math.max(ticks.at(-1), ...vals);
+  const W = 340, H = 184, top = 18, bottom = 34, h = H - top - bottom, colW = (W - AX) / 12;
+  const y = v => top + (hi - v) / (hi - lo) * h, cx = i => AX + i * colW + colW / 2;
+  const grid = ticks.map(v => `<line x1="${AX}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="${v === 0 ? 1.2 : .6}"/><text x="${AX - 4}" y="${y(v) + 3}" text-anchor="end">${Math.round(v * 100)}%</text>`).join('');
+  const full = data.map((d, i) => ({ ...d, i })).filter(d => d.r != null && !d.partial);
+  const line = full.map((d, k) => `${k ? 'L' : 'M'}${cx(d.i).toFixed(1)},${y(d.r).toFixed(1)}`).join('');
   const avg = full.length ? full.reduce((a, d) => a + d.r, 0) / full.length : null;
-  return `<svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sparerate per måned">
-    <line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>
-    ${avg != null ? `<line x1="0" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" stroke="var(--muted)" stroke-dasharray="3 3"/><text x="${W - 4}" y="${y(avg) - 4}" text-anchor="end">snitt ${rateTxt(avg)}</text>` : ''}
-    <path d="${line}" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linejoin="round"/>
-    ${data.map((d, i) => d.r == null ? '' : `<circle cx="${i * colW + colW / 2}" cy="${y(d.r)}" r="${d.m === active ? 5 : 3.5}" fill="${d.r < 0 ? 'var(--bad)' : 'var(--good)'}" opacity="${d.partial ? .4 : 1}"><title>${periodLabel(d.m)}: ${rateTxt(d.r)}</title></circle>`).join('')}
-    ${data.map((d, i) => `<text x="${i * colW + colW / 2}" y="${H - 7}" text-anchor="middle" ${d.m === active ? 'style="fill:var(--ink);font-weight:700"' : ''}>${MONTHS[+d.m.slice(5) - 1].slice(0, 3)}</text>
-      <rect class="hit" data-month="${d.m}" x="${i * colW}" y="0" width="${colW}" height="${H}"></rect>`).join('')}</svg>`;
+  const pts = data.map((d, i) => d.r == null ? '' : `<circle cx="${cx(i)}" cy="${y(d.r)}" r="${d.m === active ? 5 : 3.5}" fill="${d.r < 0 ? 'var(--bad)' : 'var(--good)'}" opacity="${d.partial ? .4 : 1}"/>
+      <text class="val" x="${cx(i)}" y="${d.r >= 0 ? y(d.r) - 8 : y(d.r) + 15}" text-anchor="middle" opacity="${d.partial ? .5 : 1}">${Math.round(d.r * 100)}</text>`).join('');
+  const labels = data.map((d, i) => `<text x="${cx(i)}" y="${H - 7}" text-anchor="middle" ${d.m === active ? 'style="fill:var(--ink);font-weight:700"' : ''}>${MONTHS[+d.m.slice(5) - 1].slice(0, 3)}</text>
+      <rect class="hit" data-month="${d.m}" x="${AX + i * colW}" y="0" width="${colW}" height="${H}"></rect>`).join('');
+  return `<svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sparerate per måned">${grid}
+    ${avg != null ? `<line x1="${AX}" x2="${W}" y1="${y(avg)}" y2="${y(avg)}" stroke="var(--muted)" stroke-dasharray="3 3"/>` : ''}
+    <path d="${line}" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linejoin="round"/>${pts}${labels}</svg>
+    <p class="readout">Tallene er prosent av inntekten som ble igjen. Stiplet linje: snitt ${avg != null ? `<b>${rateTxt(avg)}</b>` : '–'} for de ${full.length} hele månedene. Røde punkter: du brukte mer enn du tjente.</p>`;
 }
 // Forbruk i én kategori per måned, med snittlinje
 function trendSVG(catId, active, avg) {
   const list = last12(); if (!list.length) return '';
   const isSub = catId.includes('/'), color = CATS[mainOf(catId)].color;
   const data = list.map(m => { const t = totals(m, { noOneoff: !S.settings.oneoffInAvg }); return { m, v: (isSub ? t.bySub[catId] : t.byMain[catId]) || 0, partial: !!partialNote(m) }; });
-  const max = Math.max(1, avg || 0, ...data.map(d => d.v)), W = 340, H = 130, top = 12, bottom = 22, h = H - top - bottom, colW = W / 12, bw = colW * .55;
+  const ticks = niceTicks(0, Math.max(1, avg || 0, ...data.map(d => d.v))), max = Math.max(ticks.at(-1), avg || 0, ...data.map(d => d.v));
+  const W = 340, H = 156, top = 18, bottom = 22, h = H - top - bottom, colW = (W - AX) / 12, bw = colW * .55;
+  const grid = ticks.map(v => `<line x1="${AX}" x2="${W}" y1="${top + h - v / max * h}" y2="${top + h - v / max * h}" stroke="var(--line)" stroke-width="${v === 0 ? 1 : .6}"/><text x="${AX - 4}" y="${top + h - v / max * h + 3}" text-anchor="end">${kShort(v)}</text>`).join('');
   const bars = data.map((d, i) => {
-    const bh = Math.max(d.v / max * h, d.v > 0 ? 1 : 0), x = i * colW + (colW - bw) / 2;
+    const bh = Math.max(d.v / max * h, d.v > 0 ? 1 : 0), x = AX + i * colW + (colW - bw) / 2, cx = AX + i * colW + colW / 2;
     return `<rect x="${x}" y="${top + h - bh}" width="${bw}" height="${bh}" rx="2" fill="${color}" opacity="${d.partial ? .4 : d.m === active ? 1 : .8}"/>
-      <text x="${i * colW + colW / 2}" y="${H - 7}" text-anchor="middle" ${d.m === active ? 'style="fill:var(--ink);font-weight:700"' : ''}>${MONTHS[+d.m.slice(5) - 1].slice(0, 3)}</text>
-      <rect class="hit" data-month="${d.m}" x="${i * colW}" y="0" width="${colW}" height="${H}"><title>${periodLabel(d.m)}: ${kr(d.v)}</title></rect>`;
+      ${d.v > 0 ? `<text class="val" x="${cx}" y="${top + h - bh - 3}" text-anchor="middle">${kShort(d.v)}</text>` : ''}
+      <text x="${cx}" y="${H - 7}" text-anchor="middle" ${d.m === active ? 'style="fill:var(--ink);font-weight:700"' : ''}>${MONTHS[+d.m.slice(5) - 1].slice(0, 3)}</text>
+      <rect class="hit" data-month="${d.m}" x="${AX + i * colW}" y="0" width="${colW}" height="${H}"></rect>`;
   }).join('');
   const ay = avg ? top + h - avg / max * h : null;
-  return `<svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Forbruk per måned">${bars}
-    ${ay != null ? `<line x1="0" x2="${W}" y1="${ay}" y2="${ay}" stroke="var(--ink)" stroke-dasharray="4 3" opacity=".7"/><text x="${W - 4}" y="${ay - 4}" text-anchor="end" style="fill:var(--ink)">snitt ${kr(avg)}</text>` : ''}</svg>`;
+  return `<svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Forbruk per måned">${grid}${bars}
+    ${ay != null ? `<line x1="${AX}" x2="${W}" y1="${ay}" y2="${ay}" stroke="var(--ink)" stroke-dasharray="4 3" opacity=".6"/>` : ''}</svg>
+    ${avg ? `<p class="readout">Stiplet linje: snitt ${kr(avg)} per måned. «k» = tusen kroner.</p>` : ''}`;
 }
 // Største steder i en kategori i en periode (div = antall måneder for snitt)
 function topPlaces(catId, p, div) {
@@ -1663,6 +1684,28 @@ function openPaste() {
     <div class="sheet-actions"><button class="btn" data-sclose>Avbryt</button><button class="btn primary" data-paste-import>Importer</button></div>`;
   showSheet();
 }
+// Dra arket ned for å lukke (når det er scrollet helt opp)
+(function sheetDrag() {
+  const sh = document.getElementById('sheet'); let y0 = null, dy = 0, t0 = 0;
+  sh.addEventListener('touchstart', e => {
+    if (!sh.classList.contains('open') || sh.scrollTop > 0 || e.target.closest('input,textarea,select')) { y0 = null; return; }
+    y0 = e.touches[0].clientY; dy = 0; t0 = Date.now();
+  }, { passive: true });
+  sh.addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || sh.scrollTop > 0) { sh.style.transform = ''; sh.style.transition = ''; if (dy < 0) y0 = null; return; }
+    sh.style.transition = 'none'; sh.style.transform = `translateY(${dy}px)`;
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  sh.addEventListener('touchend', () => {
+    if (y0 == null) return;
+    const v = dy / Math.max(1, Date.now() - t0);
+    sh.style.transition = ''; sh.style.transform = '';
+    if (dy > 110 || (dy > 40 && v > .5)) closeSheet();
+    y0 = null;
+  });
+})();
 function hideSheet() {
   document.getElementById('sheet').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); ui.sheet = null;
 }
@@ -1682,10 +1725,10 @@ function closeSheet() {
 // (dra ned) beholder fanen du står i.
 const NAV_KEYS = ['tab', 'mode', 'drill', 'avgDrill', 'cat', 'kind', 'period'];
 const nav = { idx: 0, stack: [], restoring: false, expectPop: false, closing: false, sheetEntry: false };
-function navState() { const o = {}; for (const k of NAV_KEYS) o[k] = ui[k] ?? null; return o; }
+function navState() { const o = {}; for (const k of NAV_KEYS) o[k] = ui[k] ?? null; if (o.mode !== 'avg') o.mode = null; return o; }
 function navSig(s) { return [s.tab, s.mode, s.drill, s.avgDrill, s.cat, s.kind].join('|'); }
 function syncHistory() {
-  if (nav.restoring || nav.closing || nav.sheetEntry || nav.expectPop) return;
+  if (nav.restoring || nav.closing || nav.sheetEntry || nav.expectPop || nav.resetting || nav.rebuilding) return;
   const cur = navState(), sig = navSig(cur), h = history.state;
   if (!h || h.i == null) { nav.idx = 0; nav.stack = [sig]; history.replaceState({ ...cur, i: 0 }, ''); return; }
   if (navSig(h) === sig) { nav.stack[nav.idx] = sig; history.replaceState({ ...cur, i: nav.idx }, ''); return; }
@@ -1694,6 +1737,7 @@ function syncHistory() {
   history.pushState({ ...cur, i: nav.idx }, '');
 }
 window.addEventListener('popstate', e => {
+  if (nav.resetting) { const f = nav.resetting; nav.resetting = null; f(); return; }
   if (nav.closing) { nav.closing = false; syncHistory(); return; }
   if (nav.expectPop) { nav.expectPop = false; history.replaceState({ ...navState(), i: nav.idx }, ''); return; }
   if (nav.sheetEntry) { nav.sheetEntry = false; hideSheet(); return; }
@@ -1706,6 +1750,30 @@ window.addEventListener('popstate', e => {
   ui.limit = 60; render(); window.scrollTo(0, 0);
   nav.restoring = false;
 });
+// Hovedfaner: bytte fane legger ikke til steg i historikken. Historikken bygges på nytt
+// for fanen du går til, så tilbake-bevegelsen bare går opp i lagene i den fanen.
+const MAIN_TABS = ['oversikt', 'budsjett', 'avtaler', 'formue'];
+function layersFor() {
+  const cur = navState(), base = { ...cur, mode: null, drill: null, avgDrill: null, cat: null }, L = [base];
+  if (cur.tab === 'oversikt') {
+    if (cur.mode === 'avg') { L.push({ ...base, mode: 'avg' }); if (cur.avgDrill) L.push({ ...base, mode: 'avg', avgDrill: cur.avgDrill }); }
+    else if (cur.drill) L.push({ ...base, drill: cur.drill });
+  }
+  return L;
+}
+function resetHistory() {
+  const L = layersFor();
+  const apply = () => {
+    history.replaceState({ ...L[0], i: 0 }, ''); nav.stack = [navSig(L[0])]; nav.idx = 0;
+    for (let k = 1; k < L.length; k++) { nav.idx = k; nav.stack[k] = navSig(L[k]); history.pushState({ ...L[k], i: k }, ''); }
+  };
+  if (nav.idx > 0) { nav.resetting = apply; history.go(-nav.idx); } else apply();
+}
+function switchTab(tab) {
+  if (tab === ui.tab) { ui.drill = null; ui.avgDrill = null; } // trykk på aktiv fane = til toppen av fanen
+  nav.rebuilding = true; ui.tab = tab; ui.limit = 60; render(); nav.rebuilding = false;
+  resetHistory(); window.scrollTo(0, 0);
+}
 function restoreNavOnLoad() {
   const h = history.state;
   if (h && h.tab) {
@@ -1823,7 +1891,7 @@ function menuAlert() {
 function appBar() {
   const sub = ['data', 'innst', 'tx'].includes(ui.tab);
   const to = S.tx.length ? dataSpan().to : null;
-  return `<header class="appbar">${sub ? `<button class="backbtn" data-tab="oversikt" aria-label="Tilbake til oversikten">‹</button>` : ''}<h1>${TITLES[ui.tab]}</h1>${to ? `<span class="asof ${daysSince(to) > 30 ? 'warn' : ''}">Data t.o.m. ${shortDate(to)}</span>` : ''}
+  return `<header class="appbar">${sub ? `<button class="backbtn" data-histback aria-label="Tilbake">‹</button>` : ''}<h1>${TITLES[ui.tab]}</h1>${to ? `<span class="asof ${daysSince(to) > 30 ? 'warn' : ''}">Data t.o.m. ${shortDate(to)}</span>` : ''}
     <button class="menubtn" data-menu aria-label="Meny: transaksjoner, import og innstillinger"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>${menuAlert() ? '<i class="mdot"></i>' : ''}</button></header>`;
 }
 function openMenu() {
@@ -1850,7 +1918,8 @@ function go(tab) { ui.tab = tab; ui.limit = 60; render(); window.scrollTo(0, 0);
 document.addEventListener('click', e => {
   const el = e.target.closest('button, rect.hit, circle.seg'); if (!el) return;
   const d = el.dataset;
-  if (d.tab) return go(d.tab);
+  if ('histback' in d) return history.back();
+  if (d.tab) return MAIN_TABS.includes(d.tab) ? switchTab(d.tab) : go(d.tab);
   if ('period' in d && d.period) { ui.period = d.period; ui.drill = null; return render(); }
   if (d.deal) return openDealSheet(d.deal);
   if ('dealnew' in d) return openDealSheet(null, true);
