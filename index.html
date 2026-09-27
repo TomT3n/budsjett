@@ -106,6 +106,16 @@ h2{font-size:1.15rem}
 .mdot{position:absolute; top:9px; right:9px; width:9px; height:9px; border-radius:50%; background:var(--warn); border:2px solid var(--bg)}
 .menurow{grid-template-columns:1fr auto}
 .menurow .spread{grid-column:1 / 3}
+.fold summary{display:flex; justify-content:space-between; align-items:baseline; cursor:pointer; list-style:none; min-height:44px; align-items:center}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary h2::before{content:'▸ '; color:var(--muted)}
+.fold[open] summary h2::before{content:'▾ '}
+.cand{padding:12px 14px}
+.cand .btns{display:flex; gap:8px; margin-top:8px}
+.cand .btns .btn{padding:8px 12px; font-size:.9rem}
+.flag{font-size:.72rem; font-weight:500; border:1px solid var(--line); border-radius:6px; padding:0 5px; color:var(--muted); vertical-align:1px}
+.flag.warn{border-color:var(--warn); color:var(--warn)}
+.form textarea{padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); font:inherit; resize:vertical}
 .networth{text-align:center; margin:4px 0 16px}
 .networth span{display:block; color:var(--muted); font-size:.9rem}
 .networth strong{font-size:clamp(2rem,9vw,2.6rem); font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
@@ -217,8 +227,8 @@ textarea.paste{width:100%; min-height:180px; border:1px solid var(--line); borde
 <nav class="tabs" aria-label="Hovedmeny">
   <button data-tab="oversikt"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v8l6 5"/></svg>Oversikt</button>
   <button data-tab="snitt"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 8-9"/><path d="M3 12h18" stroke-dasharray="2 3"/></svg>Snitt</button>
-  <button data-tab="tx"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg><span>Poster<span id="ukBadge"></span></span></button>
   <button data-tab="budsjett"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Budsjett</button>
+  <button data-tab="avtaler"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg>Avtaler</button>
   <button data-tab="formue"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v9M19 10v9M9.5 10v9M14.5 10v9M3 21h18"/></svg>Formue</button>
   
 </nav>
@@ -582,7 +592,7 @@ const kr = n => fmt.format(Math.round(n)).replace(/\u00a0/g, ' ') + ' kr';
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function blank() { return { v: 4, tx: [], rules: {}, budgets: {}, names: {}, settings: { avgN: 6, oneoffInAvg: false }, owner: '', coverage: [], lastImport: null, lastBackup: null, wealth: { items: [], snaps: [] } }; }
+function blank() { return { v: 5, tx: [], rules: {}, budgets: {}, names: {}, settings: { avgN: 6, oneoffInAvg: false }, owner: '', coverage: [], lastImport: null, lastBackup: null, wealth: { items: [], snaps: [] }, deals: {} }; }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(LS));
@@ -591,14 +601,15 @@ function load() {
   return blank();
 }
 function save() {
-  monthsCache = null; matchCache = null; avgCache = null;
+  monthsCache = null; matchCache = null; avgCache = null; dealCache = null;
   try { localStorage.setItem(LS, JSON.stringify(S)); }
   catch (e) { toast('Kunne ikke lagre: ' + e.message); }
 }
 let S = load();
 if (!S.wealth) S.wealth = { items: [], snaps: [] };
+if (!S.deals) S.deals = {};
 // Oppgradering av lagrede data når kategorier flyttes
-const MIGRATIONS = { 2: { 'finans/gebyr': 'abonnement/bank', 'utdanning/studielan': 'finans/studielan' }, 3: {}, 4: {} };
+const MIGRATIONS = { 2: { 'finans/gebyr': 'abonnement/bank', 'utdanning/studielan': 'finans/studielan' }, 3: {}, 4: {}, 5: {} };
 function migrate() {
   let v = S.v || 1, changed = false;
   while (MIGRATIONS[v + 1]) {
@@ -660,6 +671,8 @@ function autoName(t) {
     const acc = s.replace(/^til konto:\s*/i, '');
     s = baseCat(t) === 'bolig/laan' ? 'Boliglån' : 'Lån ' + acc;
   }
+  s = s.replace(/^(vipps|dinter|zettle_?|w)\*/i, '').replace(/\*/g, ' ').replace(/^www\./i, '').replace(/\.(com|no|se)\b/i, '')
+    .replace(/\s+[a-z]{0,2}-?\d{5,}\b/gi, '').replace(/\s+(subscr|sub|gmbh|ltd|inc|ab)$/i, '').replace(/\s+/g, ' ').trim();
   s = s.replace(CITY_END, '').replace(/\s+(as|asa)$/i, '').replace(/\s*f\.?nr:?\s*\d+/i, '').replace(/lånekasse for utdannin$/i, 'Lånekasse');
   if (s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|[\s\-/.])([a-zæøå])/g, (m, a, b) => a + b.toUpperCase());
   return s;
@@ -994,6 +1007,9 @@ function viewAvg() {
   let html = `<div class="chips" role="group" aria-label="Intervall">${chips.map(([v, l]) => `<button class="chip" data-avgn="${v}" aria-pressed="${String(n) === String(v)}">${l}</button>`).join('')}</div>`;
   if (!months.length) return html + '<p class="muted">Ingen hele måneder i dataene ennå. Importer minst én hel måned.</p>';
   const A = averages(months), net = A.inc - A.exp, rng = 'r:' + months[0] + ':' + months.at(-1);
+  const inclOne = S.settings.oneoffInAvg ? S.tx.filter(t => t.oneoff && months.includes(t.date.slice(0, 7))) : [];
+  if (inclOne.length) html += `<div class="match" style="border-left-color:var(--warn)">${inclOne.length} engangspost${inclOne.length > 1 ? 'er' : ''} (${kr(inclOne.reduce((a, t) => a - t.amount, 0))}) er fordelt i snittet, fordi «Fordel engangsposter i snittet» er slått på.
+    <div class="btns"><button class="btn primary" data-oneoffoff>Hold dem utenfor</button></div></div>`;
   html += `<p class="muted small" style="margin:4px 2px 12px">${cap(monShort(months[0]))} – ${monShort(months.at(-1))}, ${months.length} hele måneder${typeof n === 'number' && months.length < n ? ` (bare ${all.length} tilgjengelig)` : ''}. Påbegynte måneder regnes ikke med.</p>
     <div class="figures">
       <div><span>Inn</span><strong>${kr(A.inc)}</strong></div>
@@ -1079,6 +1095,138 @@ function viewBudget() {
       <span class="meta"><span class="${over ? 'over' : ''}">${kr(spent)} brukt${b ? (over ? ` · ${kr(spent - b)} over` : ` · ${kr(b - spent)} igjen`) : ''}</span><span>snitt ${kr(avg)}</span></span></li>`;
   }
   return html + '</ul>';
+}
+
+// ===== Avtaler: abonnementer og forsikringer =====
+const DEAL_CATS = {
+  'abonnement/strommetjenester': 'abo', 'abonnement/mobil': 'abo', 'abonnement/programvare': 'abo', 'abonnement/apper': 'abo',
+  'abonnement/nyheter': 'abo', 'helse/trening': 'abo', 'transport/bilapp': 'abo',
+  'transport/bilforsikring': 'fors', 'bolig/forsikring': 'fors',
+};
+const DEAL_GROUPS = { abo: 'Abonnementer', fors: 'Forsikringer' };
+const EVERY = { 1: 'hver måned', 2: 'annenhver måned', 3: 'hvert kvartal', 6: 'hvert halvår', 12: 'hvert år' };
+function addMonthsISO(iso, n) { const d = new Date(iso + 'T12:00'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); }
+let dealCache = null;
+function detectDeals() {
+  if (dealCache) return dealCache;
+  const end = dataSpan().to || today(), groups = new Map();
+  for (const t of S.tx) {
+    if (t.amount >= 0 || t.oneoff) continue;
+    const cat = catOf(t), g = DEAL_CATS[cat]; if (!g) continue;
+    const e = groups.get(t.key) || { key: t.key, cat, g, tx: [] }; e.tx.push(t); e.cat = cat; e.g = g; groups.set(t.key, e);
+  }
+  const out = [];
+  for (const e of groups.values()) {
+    const d = S.deals[e.key] || {};
+    if (d.status === 'ignore') continue;
+    const occ = e.tx.sort((a, b) => a.date.localeCompare(b.date)), amts = occ.map(t => -t.amount), med = median(amts);
+    const reg = occ.filter(t => Math.abs(-t.amount - med) <= med * .25);
+    const ms = [...new Set(occ.map(t => t.date.slice(0, 7)))].sort();
+    let every = null;
+    if (ms.length >= 2) {
+      const gaps = []; for (let i = 1; i < ms.length; i++) gaps.push(monthDiff(ms[i - 1], ms[i]));
+      const m = median(gaps), ev = [1, 2, 3, 6, 12].reduce((b, x) => Math.abs(x - m) < Math.abs(b - m) ? x : b, 1);
+      if (gaps.filter(x => Math.abs(x - ev) <= Math.max(1, ev * .34)).length / gaps.length >= .6) every = ev;
+    }
+    const ev = +d.every || every, last = occ.at(-1), lastReg = reg.at(-1) || last, prevReg = reg.at(-2);
+    const price = -lastReg.amount;
+    const change = prevReg && Math.abs(price + prevReg.amount) >= 5 && Math.abs(price + prevReg.amount) / -prevReg.amount >= .05
+      ? { from: -prevReg.amount, to: price, date: lastReg.date } : null;
+    let state;
+    if (d.status === 'ended') state = 'ended';
+    else if (d.status === 'active') state = 'active';
+    else if (ev) state = addMonthsISO(last.date, ev) >= addMonthsISO(end, 0).slice(0, 10) || daysBetween(addMonthsISO(last.date, ev), end) <= 12 ? 'active' : 'ended';
+    else state = daysBetween(last.date, end) <= 400 ? 'candidate' : 'old';
+    if (state === 'old') continue;
+    out.push({ key: e.key, name: d.name || niceName(last), group: d.group || e.g, cat: e.cat, price, every: ev || 1, guessed: !ev,
+      last: last.date, next: addMonthsISO(last.date, ev || 1), change, state, count: occ.length, note: d.note || '', link: d.link || '', tx: occ });
+  }
+  // Avtaler lagt inn manuelt
+  for (const [key, d] of Object.entries(S.deals)) {
+    if (!d.manual || d.status === 'ignore') continue;
+    out.push({ key, manual: true, name: d.name, group: d.group || 'abo', cat: d.group === 'fors' ? 'bolig/forsikring' : 'abonnement/programvare', price: +d.price || 0, every: +d.every || 1,
+      last: d.start || '', next: '', change: null, state: d.status === 'ended' ? 'ended' : 'active', count: 0, note: d.note || '', link: d.link || '', tx: [] });
+  }
+  return dealCache = out.sort((a, b) => b.price / b.every - a.price / a.every);
+}
+function daysBetween(a, b) { return Math.round((Date.parse(b) - Date.parse(a)) / 864e5); }
+function perMonth(x) { return x.price / x.every; }
+
+function viewDeals() {
+  if (!S.tx.length && !Object.keys(S.deals).length) return emptyState();
+  const all = detectDeals(), active = all.filter(x => x.state === 'active');
+  const cand = all.filter(x => x.state === 'candidate'), ended = all.filter(x => x.state === 'ended');
+  const mSum = active.reduce((a, x) => a + perMonth(x), 0);
+  const end = dataSpan().to;
+  let html = `<div class="figures" style="grid-template-columns:1fr 1fr">
+    <div><span>Per måned</span><strong>${kr(mSum)}</strong></div>
+    <div><span>Per år</span><strong>${kr(mSum * 12)}</strong></div></div>`;
+  const changes = active.filter(x => x.change);
+  if (changes.length) html += `<div class="match" style="border-left-color:var(--warn)">${changes.map(x => `<b>${esc(x.name)}</b> endret pris fra ${kr(x.change.from)} til ${kr(x.change.to)} (${shortDate(x.change.date)}).`).join('<br>')}</div>`;
+  const row = x => {
+    const sub = x.state === 'active'
+      ? `${x.guessed ? 'antatt ' : ''}${EVERY[x.every] || `hver ${x.every}. måned`}${x.manual ? (x.last ? ` · lagt inn ${shortDate(x.last)}` : '') : ` · sist ${shortDate(x.last)}`}${x.next && !x.manual ? (x.next < end ? ` · <span class="warn">ventet ${shortDate(x.next)}, ikke sett</span>` : ` · neste ca. ${shortDate(x.next)}`) : ''}`
+      : x.state === 'ended' ? `Sist trukket ${longDate(x.last)}` : `Trukket ${x.count === 1 ? 'én gang' : x.count + ' ganger'}, sist ${shortDate(x.last)}`;
+    return `<li><button class="row" data-deal="${esc(x.key)}"><span class="dot" style="background:${CATS[mainOf(x.cat)].color}"></span>
+      <span class="name">${esc(x.name)}${x.change ? ' <span class="flag warn">ny pris</span>' : ''}${x.note || x.link ? ' <span class="flag">notat</span>' : ''}</span>
+      <span class="num">${kr(x.price)}${x.every > 1 ? `<span class="muted small"> /${x.every === 12 ? 'år' : x.every + ' mnd'}</span>` : ''}</span>
+      <span class="spread">${sub}</span></button></li>`;
+  };
+  for (const g of ['abo', 'fors']) {
+    const list = active.filter(x => x.group === g); if (!list.length) continue;
+    html += `<div class="section"><div class="section-head"><h2>${DEAL_GROUPS[g]}</h2><span class="num">${kr(list.reduce((a, x) => a + perMonth(x), 0))} / mnd</span></div>
+      <ul class="list">${list.map(row).join('')}</ul></div>`;
+  }
+  if (!active.length) html += '<p class="muted" style="margin-top:16px">Fant ingen aktive abonnementer eller forsikringer ennå.</p>';
+  if (cand.length) html += `<details class="section fold" ${cand.some(x => daysBetween(x.last, end) <= 45) ? 'open' : ''}><summary><h2>Mulige avtaler</h2><span class="muted small">${cand.length}</span></summary>
+    <p class="muted small">Trukket bare én gang eller uregelmessig. Er det et abonnement, trykker du Legg til. Nye abonnementer dukker opp her til de er trukket to ganger.</p>
+    <ul class="list">${cand.map(x => `<li class="cand"><div><b>${esc(x.name)}</b> <span class="num">${kr(x.price)}</span><br><span class="small muted">${x.count === 1 ? 'Én gang' : x.count + ' ganger'}, sist ${shortDate(x.last)} · ${esc(catLabel(x.cat))}</span></div>
+      <div class="btns"><button class="btn primary" data-dealadd="${esc(x.key)}">Legg til</button><button class="btn" data-dealignore="${esc(x.key)}">Ignorer</button></div></li>`).join('')}</ul></details>`;
+  if (ended.length) html += `<details class="section fold"><summary><h2>Avsluttet</h2><span class="muted small">${ended.length}</span></summary>
+    <p class="muted small">Ikke trukket når neste trekk var ventet, ut fra dataene som går til ${shortDate(end)}.</p>
+    <ul class="list">${ended.map(row).join('')}</ul></details>`;
+  html += `<div class="section"><button class="btn block" data-dealnew>Legg til avtale selv</button></div>
+    <p class="muted small" style="margin-top:12px">Funnet automatisk i kategoriene strømmetjenester, mobil, programvare, apper, nyheter, trening, bilapp og forsikring. En avtale regnes som aktiv til den uteblir etter forventet trekkdato. Årsabonnementer kan du legge til fra «Mulige avtaler».</p>`;
+  return html;
+}
+function openDealSheet(key, isNew) {
+  const x = isNew ? { key: 'm:' + Date.now(), manual: true, name: '', group: 'abo', price: '', every: 1, note: '', link: '', tx: [], state: 'active' } : detectDeals().find(d => d.key === key);
+  if (!x) return;
+  ui.sheet = '__deal'; ui.dealKey = x.key; ui.dealNew = !!isNew;
+  const safeLink = /^https?:\/\//i.test(x.link) ? x.link : '';
+  document.getElementById('sheet').innerHTML = `<div class="grip"></div>
+    <h2>${isNew ? 'Ny avtale' : esc(x.name)}</h2>
+    ${!isNew && !x.manual ? `<p class="muted small">${kr(x.price)} ${EVERY[x.every] || ''} · ${esc(catLabel(x.cat))}</p>` : ''}
+    <div class="form">
+      <label>Navn<input id="dName" value="${esc(x.name)}" placeholder="For eksempel Netflix"></label>
+      <label>Type<select id="dGroup"><option value="abo" ${x.group === 'abo' ? 'selected' : ''}>Abonnement</option><option value="fors" ${x.group === 'fors' ? 'selected' : ''}>Forsikring</option></select></label>
+      ${x.manual ? `<label>Pris<input id="dPrice" inputmode="decimal" value="${x.price || ''}" placeholder="0"></label>` : ''}
+      <label>Trekkes<select id="dEvery">${Object.entries(EVERY).map(([k, v]) => `<option value="${k}" ${+k === x.every ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label>Hva er inkludert (notat)<textarea id="dNote" rows="3" placeholder="For eksempel 20 GB data, fri tale">${esc(x.note)}</textarea></label>
+      <label>Lenke til avtalen (valgfritt)<input id="dLink" inputmode="url" value="${esc(x.link)}" placeholder="https://drive.google.com/…"></label>
+      ${safeLink ? `<a class="btn block" href="${esc(safeLink)}" target="_blank" rel="noopener">Åpne avtalen</a>` : ''}
+    </div>
+    ${x.tx.length ? `<p class="small muted" style="margin:10px 0 4px">Siste trekk</p><ul class="list status">${x.tx.slice(-6).reverse().map(t => `<li><span>${longDate(t.date)}</span><span class="num">${kr(-t.amount)}</span></li>`).join('')}</ul>` : ''}
+    ${!isNew ? `<div class="stack" style="margin-top:12px">${x.state === 'active' ? '<button class="btn block" data-dealstatus="ended">Marker som avsluttet</button>' : '<button class="btn block" data-dealstatus="active">Marker som aktiv</button>'}
+      <button class="btn block danger" data-dealignore="${esc(x.key)}">${x.manual ? 'Slett avtalen' : 'Ikke en avtale (skjul)'}</button></div>` : ''}
+    <div class="sheet-actions"><button class="btn" data-sclose>Avbryt</button><button class="btn primary" data-dealsave>Lagre</button></div>`;
+  document.getElementById('overlay').classList.add('open');
+  requestAnimationFrame(() => document.getElementById('sheet').classList.add('open'));
+}
+function saveDeal() {
+  const key = ui.dealKey, d = S.deals[key] || {};
+  const name = document.getElementById('dName').value.trim();
+  if (ui.dealNew) {
+    const price = toNum(document.getElementById('dPrice').value);
+    if (!name || !(price > 0)) return toast('Skriv inn navn og pris');
+    Object.assign(d, { manual: true, status: 'active', price, start: today() });
+  } else if (document.getElementById('dPrice')) d.price = toNum(document.getElementById('dPrice').value);
+  if (name) d.name = name; else delete d.name;
+  d.group = document.getElementById('dGroup').value;
+  d.every = +document.getElementById('dEvery').value;
+  d.note = document.getElementById('dNote').value.trim();
+  d.link = document.getElementById('dLink').value.trim();
+  S.deals[key] = d; save(); closeSheet(); render(); toast('Lagret');
 }
 
 // ===== Formue =====
@@ -1312,7 +1460,7 @@ function viewSettings() {
   const theme = document.documentElement.dataset.theme || ph;
   return `<div class="card">
       <label class="check"><input type="checkbox" data-darktoggle ${theme === 'dark' ? 'checked' : ''}><span>Mørkt tema</span></label>
-      <label class="check"><input type="checkbox" data-setting="oneoffInAvg" ${S.settings.oneoffInAvg ? 'checked' : ''}><span>Ta med engangsposter i snitt<br><span class="muted small">Engangsposter (for eksempel bilkjøp) vises alltid i måneden de skjedde. Som standard holdes de utenfor snittet, så det viser en vanlig måned.</span></span></label>
+      <label class="check"><input type="checkbox" data-setting="oneoffInAvg" ${S.settings.oneoffInAvg ? 'checked' : ''}><span>Fordel engangsposter i snittet<br><span class="muted small"><b>Av (anbefalt):</b> bilkjøp og andre engangsposter vises i måneden de skjedde, men holdes utenfor snitt og budsjett. <b>På:</b> de fordeles på alle månedene i snittet.</span></span></label>
     </div>
   ${Object.keys(S.names || {}).length ? `<div class="section"><div class="section-head"><h2>Egne navn</h2><span class="muted small">${Object.keys(S.names).length}</span></div>
     <ul class="list">${Object.entries(S.names).map(([k, v]) => `<li class="rule"><span><b>${esc(v)}</b><br><span class="small muted">${esc(k.slice(2))}</span></span><button data-delname="${esc(k)}" aria-label="Fjern eget navn ${esc(v)}">Fjern</button></li>`).join('')}</ul></div>` : ''}
@@ -1455,7 +1603,7 @@ async function restoreBackup(f) {
     const s = JSON.parse(await f.text());
     if (!Array.isArray(s.tx)) throw new Error('Filen er ikke en sikkerhetskopi fra denne appen.');
     if (!confirm(`Erstatte dagens data med ${s.tx.length} transaksjoner fra sikkerhetskopien?`)) return;
-    S = { ...blank(), tx: s.tx, rules: s.rules || {}, budgets: s.budgets || {}, settings: { ...blank().settings, ...(s.settings || {}) }, owner: s.owner || '', coverage: s.coverage || [], v: s.v || 1, names: s.names || {}, lastImport: s.lastImport || null, lastBackup: s.lastBackup || null, wealth: s.wealth || { items: [], snaps: [] } };
+    S = { ...blank(), tx: s.tx, rules: s.rules || {}, budgets: s.budgets || {}, settings: { ...blank().settings, ...(s.settings || {}) }, owner: s.owner || '', coverage: s.coverage || [], v: s.v || 1, names: s.names || {}, lastImport: s.lastImport || null, lastBackup: s.lastBackup || null, wealth: s.wealth || { items: [], snaps: [] }, deals: s.deals || {} };
     migrate();
     autoMemo.clear(); save(); ui.period = monthsInData().at(-1) || null; render(); toast('Sikkerhetskopi gjenopprettet');
   } catch (e) { toast(e.message); }
@@ -1465,16 +1613,16 @@ async function restoreBackup(f) {
 let toastTimer;
 function toast(msg) { const el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200); }
 
-const TITLES = { oversikt: 'Oversikt', snitt: 'Snitt per måned', tx: 'Poster', budsjett: 'Budsjett', formue: 'Formue', data: 'Import og sikkerhetskopi', innst: 'Innstillinger' };
+const TITLES = { oversikt: 'Oversikt', snitt: 'Snitt per måned', tx: 'Transaksjoner', avtaler: 'Avtaler', budsjett: 'Budsjett', formue: 'Formue', data: 'Import og sikkerhetskopi', innst: 'Innstillinger' };
 function menuAlert() {
   if (!S.tx.length) return false;
   const bAge = daysSince(S.lastBackup), age = daysSince(dataSpan().to);
   return bAge == null || bAge > 30 || age > 30;
 }
 function appBar() {
-  const sub = ['data', 'innst'].includes(ui.tab);
+  const sub = ['data', 'innst', 'tx'].includes(ui.tab);
   return `<header class="appbar">${sub ? `<button class="backbtn" data-tab="oversikt" aria-label="Tilbake til oversikten">‹</button>` : ''}<h1>${TITLES[ui.tab]}</h1>
-    <button class="menubtn" data-menu aria-label="Meny: import, sikkerhetskopi og innstillinger"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>${menuAlert() ? '<i class="mdot"></i>' : ''}</button></header>`;
+    <button class="menubtn" data-menu aria-label="Meny: transaksjoner, import og innstillinger"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>${menuAlert() ? '<i class="mdot"></i>' : ''}</button></header>`;
 }
 function openMenu() {
   ui.sheet = '__menu';
@@ -1482,6 +1630,7 @@ function openMenu() {
   const item = (tab, title, sub, warn) => `<li><button class="row menurow" data-menugo="${tab}"><span class="name">${title}</span><span class="num">›</span><span class="spread ${warn ? 'warn' : ''}">${sub}</span></button></li>`;
   document.getElementById('sheet').innerHTML = `<div class="grip"></div><h2 style="margin-bottom:10px">Meny</h2>
     <ul class="list">
+      ${item('tx', 'Transaksjoner', `Søk og kategoriser${uncategorizedCount() ? ` · <b>${uncategorizedCount()} ukategorisert</b>` : ''}`, uncategorizedCount() > 0)}
       ${item('data', 'Import og sikkerhetskopi', sp ? `Data til ${shortDate(sp.to)} · kopi ${S.lastBackup ? `for ${bAge} dager siden` : 'aldri tatt'}` : 'Importer CSV fra nettbanken', S.tx.length && (bAge == null || bAge > 30 || daysSince(sp.to) > 30))}
       ${item('innst', 'Innstillinger', 'Tema, engangsposter, lærte regler og egne navn', false)}
     </ul>`;
@@ -1490,11 +1639,9 @@ function openMenu() {
 }
 function render() {
   if (!ui.period || (ui.period !== '12m' && !ui.period.startsWith('r:') && !monthsInData().includes(ui.period))) ui.period = monthsInData().at(-1) || null;
-  const v = { oversikt: viewOverview, snitt: viewAvg, tx: viewTx, budsjett: viewBudget, formue: viewWealth, data: viewData, innst: viewSettings }[ui.tab];
+  const v = { oversikt: viewOverview, snitt: viewAvg, tx: viewTx, budsjett: viewBudget, formue: viewWealth, avtaler: viewDeals, data: viewData, innst: viewSettings }[ui.tab];
   document.getElementById('app').innerHTML = appBar() + v();
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === ui.tab ? 'page' : 'false'));
-  const uk = uncategorizedCount();
-  document.getElementById('ukBadge').innerHTML = uk ? `<span class="badge">${uk}</span>` : '';
 }
 function go(tab) { ui.tab = tab; ui.limit = 60; render(); window.scrollTo(0, 0); }
 
@@ -1503,6 +1650,12 @@ document.addEventListener('click', e => {
   const d = el.dataset;
   if (d.tab) return go(d.tab);
   if ('period' in d && d.period) { ui.period = d.period; ui.drill = null; return render(); }
+  if (d.deal) return openDealSheet(d.deal);
+  if ('dealnew' in d) return openDealSheet(null, true);
+  if ('dealsave' in d) return saveDeal();
+  if (d.dealadd) { S.deals[d.dealadd] = { ...(S.deals[d.dealadd] || {}), status: 'active' }; save(); render(); return toast('Lagt til. Trykk på den for å endre hvor ofte den trekkes.'); }
+  if (d.dealignore) { const k = d.dealignore; if (S.deals[k]?.manual) delete S.deals[k]; else S.deals[k] = { ...(S.deals[k] || {}), status: 'ignore' }; save(); if (ui.sheet === '__deal') closeSheet(); return render(); }
+  if (d.dealstatus) { const k = ui.dealKey; S.deals[k] = { ...(S.deals[k] || {}), status: d.dealstatus }; save(); closeSheet(); return render(); }
   if ('menu' in d) return openMenu();
   if (d.menugo) { closeSheet(); return go(d.menugo); }
   if (d.wsuggest) return openWealthSheet('new:debt', ui.suggest[+d.wsuggest]);
@@ -1525,6 +1678,7 @@ document.addEventListener('click', e => {
   if (d.delname) { delete S.names[d.delname]; save(); return render(); }
   if (d.fixedq) { ui.q = d.fixedq; ui.kind = 'alle'; ui.cat = null; return go('tx'); }
   if (d.budperiod) { ui.period = d.budperiod; return render(); }
+  if ('oneoffoff' in d) { S.settings.oneoffInAvg = false; save(); toast('Engangsposter holdes nå utenfor snittet'); return render(); }
   if (d.avgn) { S.settings.avgN = d.avgn === 'alle' ? 'alle' : +d.avgn; save(); return render(); }
   if ('avgdrill' in d) { ui.avgDrill = d.avgdrill || null; render(); return window.scrollTo(0, 0); }
   if (d.showcat && d.range) { ui.cat = d.showcat; ui.period = d.range; ui.kind = 'alle'; ui.q = ''; return go('tx'); }
