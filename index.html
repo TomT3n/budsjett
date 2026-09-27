@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" id="themeColor" content="#EAF0F1">
 <title>Budsjett</title>
-<meta name="theme-color" content="#0F5E73">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="description" content="Personlig budsjett fra kontoutskrift. Alt lagres lokalt på enheten.">
 <link rel="manifest" href="manifest.json">
@@ -77,15 +77,33 @@ h2{font-size:1.15rem}
 .row{display:grid; grid-template-columns:14px 1fr auto; gap:10px; align-items:center; width:100%; padding:12px 14px; background:none; border:0; text-align:left}
 .dot{width:12px; height:12px; border-radius:4px}
 .row .name{font-weight:600}
-.row .meter{grid-column:2 / 4; height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:-2px}
+.row .meter{grid-column:2 / 4; height:4px; background:var(--line); border-radius:2px; margin-top:-2px}
+.row .meter i{border-radius:2px}
 .row .meter i{display:block; height:100%}
 .row .pct{color:var(--muted); font-size:.8rem; margin-left:6px}
 .row .spread{grid-column:2 / 4; font-size:.75rem; color:var(--muted); margin-top:-4px}
 
 .section{margin-top:26px}
 .section-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px}
-.link{background:none; border:0; color:var(--accent); font-weight:600; padding:6px 0}
-.back{background:none; border:0; color:var(--accent); font-weight:600; padding:8px 0; margin-bottom:4px}
+.link{background:none; border:0; color:var(--accent); font-weight:600; padding:0; min-height:44px}
+.inline{background:none; border:0; color:var(--accent); font-weight:600; padding:0; font-size:inherit; text-decoration:underline; text-underline-offset:2px}
+.todos{display:flex; flex-wrap:wrap; gap:8px; margin:-8px 0 18px}
+.todo{min-height:40px; border-radius:999px; padding:0 14px; border:1px solid var(--accent); background:var(--surface); color:var(--accent); font-weight:600; font-size:.88rem}
+.todo.warn{border-color:var(--warn); color:var(--warn)}
+.partial{text-align:center; font-size:.8rem; color:var(--warn); margin:-8px 0 12px}
+.row .meter{position:relative}
+.avgmark{position:absolute; top:-3px; width:2px; height:10px; background:var(--ink); border-radius:1px; transform:translateX(-1px)}
+.under{color:var(--good); font-weight:600}
+.row .spread .over{font-weight:600}
+.monthhead{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:24px 2px 0; padding-bottom:6px; border-bottom:2px solid var(--line)}
+.monthhead b{font-size:1.05rem}
+.monthhead span{font-size:.8rem; color:var(--muted); text-align:right}
+.status li{display:flex; justify-content:space-between; gap:10px; padding:11px 14px; font-size:.9rem}
+.status li span:first-child{color:var(--muted)}
+.warn{color:var(--warn); font-weight:600}
+.budget-row .bar{position:relative; overflow:visible}
+.tempo{position:absolute; top:-4px; width:2px; height:16px; background:var(--ink); border-radius:1px; transform:translateX(-1px)}
+.back{background:none; border:0; color:var(--accent); font-weight:600; padding:0; min-height:44px; margin-bottom:4px}
 
 .banner{display:flex; gap:12px; align-items:center; width:100%; text-align:left; background:var(--surface); border:1px dashed var(--warn); border-radius:14px; padding:12px 14px; margin-bottom:18px}
 .banner b{color:var(--warn)}
@@ -94,13 +112,13 @@ h2{font-size:1.15rem}
 .bars{display:block; width:100%; height:auto; background:var(--surface); border:1px solid var(--line); border-radius:14px}
 .bars .hit{fill:transparent; cursor:pointer}
 .bars text{font-size:10px; fill:var(--muted); font-family:inherit}
-.legend{display:flex; gap:14px; font-size:.8rem; color:var(--muted); margin-top:6px}
+.legend{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:.8rem; color:var(--muted); margin-top:6px}
 .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px}
 
 /* Transaksjoner */
 .search{width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:var(--surface)}
 .chips{display:flex; gap:8px; overflow-x:auto; padding:10px 0 4px; scrollbar-width:none}
-.chip{flex:none; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:7px 13px; font-size:.9rem}
+.chip{flex:none; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:0 15px; min-height:44px; font-size:.9rem}
 .chip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
 .day{font-size:.8rem; color:var(--muted); margin:16px 2px 6px}
 .tx{display:grid; grid-template-columns:1fr auto; gap:2px 12px; width:100%; text-align:left; background:none; border:0; padding:11px 14px}
@@ -123,7 +141,7 @@ h2{font-size:1.15rem}
 /* Budsjett */
 .budget-row{padding:14px; display:grid; grid-template-columns:1fr auto; gap:6px 12px; align-items:center}
 .budget-row .bar{grid-column:1 / 3; height:8px; background:var(--line); border-radius:4px; overflow:hidden}
-.budget-row .bar i{display:block; height:100%; border-radius:4px}
+.budget-row .bar i{display:block; height:100%; border-radius:4px; max-width:100%}
 .budget-row input{width:104px; text-align:right; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--bg)}
 .budget-row .meta{grid-column:1 / 3; font-size:.8rem; color:var(--muted); display:flex; justify-content:space-between; gap:8px}
 .over{color:var(--bad); font-weight:600}
@@ -199,13 +217,13 @@ const CATS = {
   bolig:      { name: 'Bolig', color: '#2F5D8A', type: 'exp', subs: { laan: 'Boliglån (renter og gebyr)', felles: 'Felleskostnader', strom: 'Strøm', forsikring: 'Innbo- og reiseforsikring', kommunal: 'Kommunale avgifter', annet: 'Annet' } },
   mat:        { name: 'Mat & drikke', color: '#3F8A5A', type: 'exp', subs: { dagligvarer: 'Dagligvarer', restaurant: 'Restaurant', takeaway: 'Take-away & gatekjøkken', kafe: 'Kafé, bakeri & kiosk', bar: 'Bar & uteliv', alkohol: 'Vinmonopolet' } },
   transport:  { name: 'Transport', color: '#C9722F', type: 'exp', subs: { drivstoff: 'Drivstoff & lading', parkering: 'Parkering', bom: 'Bom & ferje', kollektiv: 'Kollektiv', sparkesykkel: 'Sparkesykkel', vedlikehold: 'Service, vask & deler', dekk: 'Dekk', avgifter: 'Bilavgifter', bilkjop: 'Bilkjøp', billan: 'Billån', bilforsikring: 'Bilforsikring', bilapp: 'Bilapp & tilkobling' } },
-  abonnement: { name: 'Abonnementer', color: '#7B4F9E', type: 'exp', subs: { strommetjenester: 'Strømmetjenester', mobil: 'Mobil & internett', programvare: 'Programvare & AI', apper: 'Apper', nyheter: 'Nyheter' } },
+  abonnement: { name: 'Abonnementer', color: '#7B4F9E', type: 'exp', subs: { strommetjenester: 'Strømmetjenester', mobil: 'Mobil & internett', programvare: 'Programvare & AI', apper: 'Apper', nyheter: 'Nyheter', bank: 'Bank- og kortgebyr' } },
   shopping:   { name: 'Shopping', color: '#B4464B', type: 'exp', subs: { elektronikk: 'Elektronikk', klaer: 'Klær & sko', interior: 'Møbler & interiør', sport: 'Sport & friluft', bygg: 'Bygg & verktøy', diverse: 'Diverse' } },
   helse:      { name: 'Helse & velvære', color: '#23918F', type: 'exp', subs: { apotek: 'Apotek', lege: 'Lege, tannlege & sykehus', trening: 'Trening', pleie: 'Frisør & pleie' } },
   fritid:     { name: 'Fritid', color: '#CFA02B', type: 'exp', subs: { spill: 'Spill', tipping: 'Tipping', opplevelser: 'Kino & opplevelser', hobby: 'Hobby', reise: 'Reise' } },
-  utdanning:  { name: 'Utdanning', color: '#5873B8', type: 'exp', subs: { studielan: 'Studielån', semester: 'Semesteravgift', annet: 'Annet' } },
+  utdanning:  { name: 'Utdanning', color: '#5873B8', type: 'exp', subs: { semester: 'Semesteravgift', annet: 'Kurs & annet' } },
   gaver:      { name: 'Gaver', color: '#D0678F', type: 'exp', subs: { gaver: 'Gaver', blomster: 'Blomster' } },
-  finans:     { name: 'Lån & bank', color: '#6B6F4A', type: 'exp', subs: { annetlan: 'Andre lån', gebyr: 'Gebyrer', faktura: 'Faktura & delbetaling' } },
+  finans:     { name: 'Gjeld', color: '#8C4A3C', type: 'exp', subs: { studielan: 'Studielån', kreditt: 'Kredittkort', forbrukslan: 'Forbrukslån', faktura: 'Delbetaling (Klarna, Riverty o.l.)', annetlan: 'Annen gjeld' } },
   inntekt:    { name: 'Inntekt', color: '#2E7D4F', type: 'inc', subs: { lonn: 'Lønn', refusjon: 'Refusjon', skatt: 'Skatt tilbake', annet: 'Annen inntekt' } },
   overforing: { name: 'Overføringer', color: '#7D8B90', type: 'transfer', subs: { personer: 'Venner & familie', sparing: 'Sparing & investering', egne: 'Egne kontoer' } },
   ukat:       { name: 'Ukategorisert', color: '#A3ADB0', type: 'auto', subs: { ukat: 'Ukategorisert' } },
@@ -252,6 +270,9 @@ const KEYWORD_RULES = [
   ['-', ['ANTHROPIC', 'OPENAI', 'CHATGPT', 'GOOGLE ONE', 'MICROSOFT', 'ADOBE', 'SERVERMINER', 'DROPBOX', 'ICLOUD'], 'abonnement/programvare'],
   ['-', ['GOOGLE PLAY', 'APP STORE'], 'abonnement/apper'],
   ['-', ['NETTAVISEN', 'AFTENBLADET', 'VG+', 'AFTENPOSTEN'], 'abonnement/nyheter'],
+  // Gjeld (før Fritid/Shopping, så f.eks. «SAS EUROBONUS MASTERCARD» ikke blir reise og «KOMPLETT BANK» ikke elektronikk)
+  ['-', ['BANK NORWEGIAN', 'RE:MEMBER', 'REMEMBER', 'TRUMF VISA', 'SAS EUROBONUS*', 'COOP MASTERCARD', 'EIKA KREDITTBANK', 'KREDITTKORT*', 'MASTERCARD', 'VISA KORT'], 'finans/kreditt'],
+  ['-', ['INSTABANK', 'SANTANDER', 'MORROW', 'NORDAX', 'KOMPLETT BANK', 'BRABANK', 'EKSPRESS BANK', 'LENDO', 'AXO FINANS', 'RESURS BANK', 'IKANO BANK'], 'finans/forbrukslan'],
   // Fritid
   ['-', ['NORSK TIPPING', 'RIKSTOTO'], 'fritid/tipping'],
   ['-', ['PLAYSTATION', 'STEAMGAMES', 'STEAM', 'WUTHERING*', 'KURO GAMES', 'NINTENDO', 'XBOX', 'EPIC GAMES'], 'fritid/spill'],
@@ -270,11 +291,10 @@ const KEYWORD_RULES = [
   ['-', ['SATS', 'EVO', '3T', 'ELIXIA', 'FRESH FITNESS'], 'helse/trening'],
   ['-', ['APPEAL', 'FRISØR*', 'FRIS R*', 'CUTTERS', 'BYHAIR'], 'helse/pleie'],
   // Utdanning og lån
-  ['-', ['LÅNEKASSE*', 'LANEKASSE*'], 'utdanning/studielan'],
+  ['-', ['LÅNEKASSE*', 'LANEKASSE*'], 'finans/studielan'],
   ['-', ['UNIVERSITETET I STAVANGER', 'UNIVERSITETET*', 'STUDENTSAMSKIPNAD*'], 'utdanning/semester'],
   ['-', ['PLAGIATKONTROLL*'], 'utdanning/annet'],
   ['-', ['EIKA DIGITALBANK'], 'transport/billan'],
-  ['-', ['SANTANDER', 'BANK NORWEGIAN'], 'finans/annetlan'],
   ['-', ['RIVERTY', 'KLARNA BANK'], 'finans/faktura'],
   // Gaver
   ['-', ['BLOMST*', 'INTERFLORA', 'MESTERGRØNN'], 'gaver/blomster'],
@@ -409,7 +429,7 @@ function autoCategory(t, owner) {
   const inc = t.amount > 0;
   if (/lønn/i.test(t.type) || /lønn/i.test(t.sub)) return 'inntekt/lonn';
   if (/nedbetaling av lån/i.test(t.sub)) return 'bolig/laan';
-  if (/omkostning/i.test(t.type)) return 'finans/gebyr';
+  if (/omkostning/i.test(t.type)) return 'abonnement/bank';
   if (/kundeutbytte/i.test(t.sub)) return 'inntekt/annet';
   const personLike = /straksbetaling|kreditoverføring|betaling med melding/i.test(t.sub);
   if (personLike && owner && t.desc.toUpperCase().startsWith(owner.toUpperCase())) return 'overforing/egne';
@@ -531,20 +551,33 @@ const kr = n => fmt.format(Math.round(n)).replace(/\u00a0/g, ' ') + ' kr';
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function blank() { return { tx: [], rules: {}, budgets: {}, settings: { hideOneoff: true, avgN: 6 }, owner: '', coverage: [] }; }
+function blank() { return { v: 3, tx: [], rules: {}, budgets: {}, names: {}, settings: { avgN: 6, oneoffInAvg: false }, owner: '', coverage: [], lastImport: null, lastBackup: null }; }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(LS));
-    if (s && Array.isArray(s.tx)) return { ...blank(), ...s, settings: { ...blank().settings, ...(s.settings || {}) } };
+    if (s && Array.isArray(s.tx)) return { ...blank(), ...s, v: s.v || 1, settings: { ...blank().settings, ...(s.settings || {}) } };
   } catch (e) {}
   return blank();
 }
 function save() {
-  monthsCache = null; matchCache = null;
+  monthsCache = null; matchCache = null; avgCache = null;
   try { localStorage.setItem(LS, JSON.stringify(S)); }
   catch (e) { toast('Kunne ikke lagre: ' + e.message); }
 }
 let S = load();
+// Oppgradering av lagrede data når kategorier flyttes
+const MIGRATIONS = { 2: { 'finans/gebyr': 'abonnement/bank', 'utdanning/studielan': 'finans/studielan' }, 3: {} };
+function migrate() {
+  let v = S.v || 1, changed = false;
+  while (MIGRATIONS[v + 1]) {
+    const map = MIGRATIONS[v + 1];
+    for (const t of S.tx) if (t.cat && map[t.cat]) t.cat = map[t.cat];
+    for (const k in S.rules) if (map[S.rules[k]]) S.rules[k] = map[S.rules[k]];
+    v++; changed = true;
+  }
+  S.v = v; return changed;
+}
+if (migrate()) try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {}
 const ui = { tab: 'oversikt', period: null, drill: null, q: '', kind: 'alle', cat: null, limit: 60, sheet: null, sheetMain: null };
 
 // ===== Kategori-hjelpere =====
@@ -586,14 +619,20 @@ function kindOf(t, cat = catOf(t)) {
   const ty = CATS[mainOf(cat)]?.type || 'auto';
   return ty === 'auto' ? (t.amount < 0 ? 'exp' : 'inc') : ty;
 }
-function niceName(t) {
+const CITY_END = /\s+(sandnes|stavanger|sola|bryne|klepp|hafrsfjord|randaberg|ålgård|jørpeland|egersund|oslo|bergen|trondheim)$/i;
+function autoName(t) {
   let s = t.desc || t.recv || '';
   if (/^overføring$/i.test(s.trim())) { const v = vippsName(t.msg); s = v ? 'Vipps fra ' + v : 'Overføring'; }
   s = s.replace(/\s*\(\d{11}\)\s*/g, ' ').replace(/^\d{2}\.\d{2}\s+/, '').replace(/\s+/g, ' ').trim();
-  if (/^til konto:/i.test(s)) s = 'Lån ' + s.replace(/^til konto:\s*/i, '');
+  if (/nedbetaling av lån/i.test(t.sub) || /^til konto:/i.test(s)) {
+    const acc = s.replace(/^til konto:\s*/i, '');
+    s = baseCat(t) === 'bolig/laan' ? 'Boliglån' : 'Lån ' + acc;
+  }
+  s = s.replace(CITY_END, '').replace(/\s+(as|asa)$/i, '').replace(/\s*f\.?nr:?\s*\d+/i, '').replace(/lånekasse for utdannin$/i, 'Lånekasse');
   if (s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|[\s\-/.])([a-zæøå])/g, (m, a, b) => a + b.toUpperCase());
   return s;
 }
+function niceName(t) { return (S.names && S.names[t.key]) || autoName(t); }
 
 // ===== Perioder =====
 let monthsCache = null;
@@ -637,23 +676,27 @@ function completeMonths() {
 }
 function avgWindow(n) { const all = completeMonths(); return n === 'alle' ? all : all.slice(-n); }
 function averages(months) {
-  const r = { inc: 0, exp: 0, transfer: 0, byMain: {}, bySub: {}, perMonth: [], hidden: 0 };
-  const k = months.length || 1;
+  const r = { inc: 0, exp: 0, transfer: 0, byMain: {}, bySub: {}, perMonth: [], hidden: 0, hiddenSum: 0 };
+  const k = months.length || 1, opt = { noOneoff: !S.settings.oneoffInAvg };
   for (const m of months) {
-    const t = totals(m); r.perMonth.push({ m, t }); r.hidden += t.hidden;
+    const t = totals(m, opt); r.perMonth.push({ m, t }); r.hidden += t.hidden; r.hiddenSum += t.hiddenSum;
     r.inc += t.inc / k; r.exp += t.exp / k; r.transfer += t.transfer / k;
     for (const [c, v] of Object.entries(t.byMain)) r.byMain[c] = (r.byMain[c] || 0) + v / k;
     for (const [c, v] of Object.entries(t.bySub)) r.bySub[c] = (r.bySub[c] || 0) + v / k;
   }
   return r;
 }
+let avgCache = null;
+function currentAverages() { if (!avgCache) avgCache = averages(avgWindow(S.settings.avgN || 6)); return avgCache; }
 
 // ===== Aggregering =====
-function totals(p) {
-  const res = { inc: 0, exp: 0, transfer: 0, byMain: {}, bySub: {}, hidden: 0 };
+// opt.noOneoff: hopp over engangsposter (brukes i snitt). Månedsvisning tar dem alltid med.
+function totals(p, opt = {}) {
+  const res = { inc: 0, exp: 0, transfer: 0, byMain: {}, bySub: {}, hidden: 0, hiddenSum: 0, oneoffs: [] };
   for (const t of S.tx) {
     if (!inPeriod(t, p)) continue;
-    if (t.oneoff && S.settings.hideOneoff) { res.hidden++; continue; }
+    if (t.oneoff && opt.noOneoff) { res.hidden++; res.hiddenSum += -t.amount; continue; }
+    if (t.oneoff) res.oneoffs.push(t);
     const cat = catOf(t), k = kindOf(t, cat);
     if (k === 'inc') res.inc += t.amount;
     else if (k === 'transfer') res.transfer += t.amount;
@@ -664,6 +707,51 @@ function totals(p) {
     }
   }
   return res;
+}
+// Datoer dataene dekker, og om en måned er ufullstendig
+function dataSpan() {
+  const cov = S.coverage && S.coverage.length ? S.coverage : null;
+  if (cov) return { from: cov[0][0], to: cov.reduce((a, c) => c[1] > a ? c[1] : a, cov[0][1]) };
+  const d = S.tx.map(t => t.date).sort(); return { from: d[0], to: d.at(-1) };
+}
+function partialNote(m) {
+  if (!m || m.length !== 7 || completeMonths().includes(m)) return '';
+  const sp = dataSpan();
+  if (sp.to && sp.to < monthEnd(m)) return `Påbegynt måned, data til ${shortDate(sp.to)}`;
+  if (sp.from && sp.from > m + '-01') return `Ufullstendig måned, data fra ${shortDate(sp.from)}`;
+  return 'Ufullstendig måned';
+}
+function daysSince(iso) { return iso ? Math.floor((Date.now() - Date.parse(iso)) / 864e5) : null; }
+function bigTransfers() { return S.tx.filter(t => isPersonTransfer(t) && t.amount <= -5000 && !t.cat && !S.rules[t.key]); }
+function monthDiff(a, b) { return (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7)); }
+function median(a) { const s = [...a].sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; }
+
+// ===== Faste utgifter: gjentakende regninger i «faste» kategorier =====
+const FIXED_MAINS = new Set(['bolig', 'finans', 'abonnement']);
+const FIXED_CATS = new Set(['transport/billan', 'transport/bilforsikring', 'transport/bilapp', 'utdanning/semester', 'helse/trening']);
+function fixedCosts() {
+  const groups = new Map();
+  for (const t of S.tx) {
+    if (t.amount >= 0 || t.oneoff) continue;
+    const cat = catOf(t);
+    if (kindOf(t, cat) !== 'exp' || !(FIXED_MAINS.has(mainOf(cat)) || FIXED_CATS.has(cat))) continue;
+    const g = groups.get(t.key) || { key: t.key, tx: [] }; g.tx.push(t); g.cat = cat; groups.set(t.key, g);
+  }
+  const endM = (dataSpan().to || '').slice(0, 7), out = [];
+  for (const g of groups.values()) {
+    const byM = new Map();
+    for (const t of g.tx) { const m = t.date.slice(0, 7); byM.set(m, (byM.get(m) || 0) - t.amount); }
+    const ms = [...byM.keys()].sort(); if (ms.length < 2) continue;
+    const gaps = []; for (let i = 1; i < ms.length; i++) gaps.push(monthDiff(ms[i - 1], ms[i]));
+    const every = [1, 2, 3, 6, 12].reduce((best, x) => Math.abs(x - median(gaps)) < Math.abs(best - median(gaps)) ? x : best, 1);
+    const okGaps = gaps.filter(x => Math.abs(x - every) <= Math.max(1, every * .34)).length;
+    if (okGaps / gaps.length < .7) continue;
+    if (every === 1 && ms.length < 3) continue;
+    if (monthDiff(ms.at(-1), endM) > every + 1) continue; // ser ut til å ha stoppet
+    const last = g.tx.reduce((a, t) => t.date > a.date ? t : a, g.tx[0]);
+    out.push({ key: g.key, cat: g.cat, name: niceName(last), every, perMonth: median([...byM.values()]) / every });
+  }
+  return out.sort((a, b) => b.perMonth - a.perMonth);
 }
 function uncategorizedCount() { return S.tx.filter(t => catOf(t) === 'ukat/ukat').length; }
 
@@ -689,13 +777,13 @@ function barsSVG(active) {
   const out = data.map((d, i) => {
     const x = i * colW + colW / 2, hi = d.inc / max * h, he = d.exp / max * h, act = d.m === active;
     return `<g>${act ? `<rect x="${i * colW + 1}" y="2" width="${colW - 2}" height="${H - 4}" rx="6" fill="var(--bg)"/>` : ''}
-      <rect x="${x - bw - 1}" y="${top + h - hi}" width="${bw}" height="${Math.max(hi, .5)}" rx="2" fill="var(--good)"/>
-      <rect x="${x + 1}" y="${top + h - he}" width="${bw}" height="${Math.max(he, .5)}" rx="2" fill="var(--accent)"/>
+      <g opacity="${partialNote(d.m) ? .4 : 1}"><rect x="${x - bw - 1}" y="${top + h - hi}" width="${bw}" height="${Math.max(hi, .5)}" rx="2" fill="var(--good)"/>
+      <rect x="${x + 1}" y="${top + h - he}" width="${bw}" height="${Math.max(he, .5)}" rx="2" fill="var(--accent)"/></g>
       <text x="${x}" y="${H - 7}" text-anchor="middle" ${act ? 'style="fill:var(--ink);font-weight:700"' : ''}>${MONTHS[+d.m.slice(5) - 1].slice(0, 3)}</text>
       <rect class="hit" data-month="${d.m}" x="${i * colW}" y="0" width="${colW}" height="${H}"><title>${periodLabel(d.m)}: inn ${kr(d.inc)}, ut ${kr(d.exp)}</title></rect></g>`;
   }).join('');
   return `<svg class="bars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Inntekter og utgifter per måned">${out}</svg>
-    <div class="legend"><span><i style="background:var(--good)"></i>Inn</span><span><i style="background:var(--accent)"></i>Ut</span><span>Trykk på en måned for å åpne den</span></div>`;
+    <div class="legend"><span><i style="background:var(--good)"></i>Inn</span><span><i style="background:var(--accent)"></i>Ut</span><span>Lysere = ufullstendig måned. Trykk for å åpne.</span></div>`;
 }
 
 // ===== Visninger =====
@@ -705,7 +793,16 @@ function periodBar() {
   return `<div class="period">
     <button class="arrow" data-period="${prev || ''}" ${prev ? '' : 'disabled'} aria-label="Forrige måned">‹</button>
     <button class="label" data-toggle12 aria-label="Bytt mellom måned og siste 12 måneder">${cap(periodLabel(p))}</button>
-    <button class="arrow" data-period="${next || ''}" ${next ? '' : 'disabled'} aria-label="Neste måned">›</button></div>`;
+    <button class="arrow" data-period="${next || ''}" ${next ? '' : 'disabled'} aria-label="Neste måned">›</button></div>
+    ${partialNote(p) ? `<p class="partial">${partialNote(p)}</p>` : ''}`;
+}
+function todoRow() {
+  const items = [], big = bigTransfers(), pend = pendingCount(), uk = uncategorizedCount(), age = daysSince(dataSpan().to);
+  if (big.length) items.push(`<button class="todo warn" data-bigtx>${big.length} stor${big.length > 1 ? 'e' : ''} overføring${big.length > 1 ? 'er' : ''}</button>`);
+  if (uk) items.push(`<button class="todo warn" data-goto-ukat>${uk} ukategorisert</button>`);
+  if (pend) items.push(`<button class="todo" data-goto-pending>${pend} Vipps å sjekke</button>`);
+  if (age != null && age > 30) items.push(`<button class="todo" data-tab="data">Data er ${age} dager gammel</button>`);
+  return items.length ? `<div class="todos">${items.join('')}</div>` : '';
 }
 
 function emptyState() {
@@ -718,17 +815,14 @@ function viewOverview() {
   if (!S.tx.length) return emptyState();
   if (ui.period.startsWith('r:')) ui.period = monthsInData().at(-1);
   const p = ui.period, T = totals(p), n = periodMonths(p);
-  const net = T.inc - T.exp;
+  const net = T.inc - T.exp, single = p.length === 7, A = single ? currentAverages() : null;
   let html = periodBar();
   html += `<div class="figures">
     <div><span>Inn</span><strong class="num">${kr(T.inc)}</strong></div>
     <div><span>Ut</span><strong class="num">${kr(T.exp)}</strong></div>
     <div><span>Igjen</span><strong class="num ${net >= 0 ? 'pos' : 'neg'}">${kr(net)}</strong></div></div>`;
-  const uk = uncategorizedCount();
-  const pend = pendingCount();
-  if (pend) html += `<button class="banner" data-goto-pending style="border-color:var(--accent)"><span><b style="color:var(--accent)">${pend} Vipps-overføringer</b> er antatt koblet til kjøp eller kategorisert fra meldingen. Sjekk at de stemmer.</span></button>`;
-  if (uk) html += `<button class="banner" data-goto-ukat><span><b>${uk} transaksjoner</b> mangler kategori. Velg én gang, så husker appen det neste gang.</span></button>`;
-
+  html += todoRow();
+  const done = single && !partialNote(p);
   if (ui.drill) {
     const M = CATS[ui.drill];
     const items = Object.entries(M.subs).map(([s, name]) => ({ id: ui.drill + '/' + s, label: name, value: T.bySub[ui.drill + '/' + s] || 0 }))
@@ -738,28 +832,35 @@ function viewOverview() {
     const tot = T.byMain[ui.drill] || 0;
     html += `<button class="back" data-drill="">‹ Alle kategorier</button>`;
     html += `<div class="donut-wrap">${items.length ? donutSVG(items, M.name) : ''}<div class="donut-center"><div class="big num">${kr(tot)}</div><div class="cap">${esc(M.name)}${n > 1 ? `<br>${kr(tot / n)} per mnd` : ''}</div></div></div>`;
-    html += listRows(items, tot, 'sub');
+    html += listRows(items, tot, 'sub', A && A.bySub, done);
     html += `<div class="section"><button class="btn block" data-showcat="${ui.drill}">Vis alle transaksjoner i ${esc(M.name.toLowerCase())}</button></div>`;
   } else {
     const items = Object.entries(T.byMain).filter(([, v]) => v > 0.5)
       .map(([m, v]) => ({ id: m, label: CATS[m].name, value: v, color: CATS[m].color })).sort((a, b) => b.value - a.value);
-    html += `<div class="donut-wrap">${items.length ? donutSVG(items, 'Utgifter per kategori') : ''}<div class="donut-center"><div class="big num">${kr(T.exp)}</div><div class="cap">brukt${n > 1 ? `<br>${kr(T.exp / n)} per mnd` : ''}</div></div></div>`;
-    html += items.length ? listRows(items, T.exp, 'main') : '<p class="muted">Ingen utgifter i perioden.</p>';
+    html += `<div class="donut-wrap">${items.length ? donutSVG(items, 'Utgifter per kategori') : ''}<div class="donut-center"><div class="big num">${kr(T.exp)}</div><div class="cap">brukt${n > 1 ? `<br>${kr(T.exp / n)} per mnd` : A ? `<br>snitt ${kr(A.exp)}` : ''}</div></div></div>`;
+    html += items.length ? listRows(items, T.exp, 'main', A && A.byMain, done) : '<p class="muted">Ingen utgifter i perioden.</p>';
   }
   const bits = [];
+  if (A) bits.push(`Streken på linjene er snittet for ${S.settings.avgN === 'alle' ? 'alle hele måneder' : `siste ${S.settings.avgN || 6} hele måneder`}.`);
   if (Math.abs(T.transfer) > 0.5) bits.push(`Overføringer (${kr(T.transfer)} netto) er holdt utenfor.`);
-  if (T.hidden) bits.push(`${T.hidden} engangspost${T.hidden > 1 ? 'er' : ''} er skjult.`);
+  if (T.oneoffs.length) bits.push(`Engangspost${T.oneoffs.length > 1 ? 'er' : ''} ${T.oneoffs.map(t => `${esc(niceName(t))} ${kr(-t.amount)}`).join(', ')} er med her, men holdes utenfor snittet.`);
   if (bits.length) html += `<p class="muted small" style="margin-top:10px">${bits.join(' ')}</p>`;
   html += `<div class="section"><div class="section-head"><h2>Måned for måned</h2></div>${barsSVG(p)}</div>`;
   return html;
 }
 
-function listRows(items, total, mode) {
-  return `<ul class="list">${items.map(x => `<li><button class="row" ${mode === 'main' ? `data-drill="${x.id}"` : `data-showcat="${x.id}"`}>
+// avg: kart id -> snitt per måned. done: måneden er ferdig, så avvik kan vises.
+function listRows(items, total, mode, avg, done) {
+  return `<ul class="list">${items.map(x => {
+    const a = avg ? avg[x.id] || 0 : null, diff = a != null ? x.value - a : 0;
+    const cmp = a == null ? '' : `<span class="spread">Snitt ${kr(a)}${done && a > 0 && Math.abs(diff) >= Math.max(50, a * .1) ? ` · <span class="${diff > 0 ? 'over' : 'under'}">${kr(Math.abs(diff))} ${diff > 0 ? 'over' : 'under'}</span>` : ''}</span>`;
+    const mark = a ? `<b class="avgmark" style="left:${Math.min(100, a / total * 100).toFixed(1)}%"></b>` : '';
+    return `<li><button class="row" ${mode === 'main' ? `data-drill="${x.id}"` : `data-showcat="${x.id}"`}>
     <span class="dot" style="background:${x.color}"></span>
     <span class="name">${esc(x.label)}<span class="pct">${Math.round(x.value / total * 100)} %</span></span>
     <span class="num">${kr(x.value)}</span>
-    <span class="meter"><i style="width:${(x.value / total * 100).toFixed(1)}%;background:${x.color}"></i></span></button></li>`).join('')}</ul>`;
+    <span class="meter"><i style="width:${(x.value / total * 100).toFixed(1)}%;background:${x.color}"></i>${mark}</span>${cmp}</button></li>`;
+  }).join('')}</ul>`;
 }
 function shadeList(hex, n) {
   const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
@@ -774,6 +875,7 @@ let refundIndex_ = new Map();
 function filteredTx() {
   const q = ui.q.trim().toLowerCase();
   refundIndex_ = refundIndex();
+  const bigIds = new Set(bigTransfers().map(t => t.id));
   return S.tx.filter(t => {
     const cat = catOf(t), k = kindOf(t, cat);
     if (ui.cat) { if (ui.cat.includes('/') ? cat !== ui.cat : mainOf(cat) !== ui.cat) return false; if (!inPeriod(t, ui.period)) return false; }
@@ -783,6 +885,7 @@ function filteredTx() {
     if (ui.kind === 'inc' && k !== 'inc') return false;
     if (ui.kind === 'transfer' && k !== 'transfer') return false;
     if (ui.kind === 'oneoff' && !t.oneoff) return false;
+    if (ui.kind === 'stor' && !bigIds.has(t.id)) return false;
     if (q && !(niceName(t) + ' ' + t.msg + ' ' + catLabel(cat) + ' ' + t.amount).toLowerCase().includes(q)) return false;
     return true;
   }).sort((a, b) => b.date.localeCompare(a.date) || a.amount - b.amount);
@@ -813,7 +916,7 @@ function catPeriodBar() {
 }
 function viewTx() {
   if (!S.tx.length) return emptyState();
-  const kinds = [['alle', 'Alle'], ['ukat', 'Ukategorisert'], ['antatt', 'Antatt fra Vipps'], ['exp', 'Utgifter'], ['inc', 'Inntekter'], ['transfer', 'Overføringer'], ['oneoff', 'Engangsposter']];
+  const kinds = [['alle', 'Alle'], ['ukat', 'Ukategorisert'], ['antatt', 'Antatt fra Vipps'], ...(bigTransfers().length ? [['stor', 'Store overføringer']] : []), ['exp', 'Utgifter'], ['inc', 'Inntekter'], ['transfer', 'Overføringer'], ['oneoff', 'Engangsposter']];
   let html = `<input class="search" type="search" placeholder="Søk etter butikk, person eller beløp" value="${esc(ui.q)}" data-search aria-label="Søk">
     <div class="chips" role="group" aria-label="Filter">${kinds.map(([k, l]) => `<button class="chip" data-kind="${k}" aria-pressed="${ui.kind === k}">${l}</button>`).join('')}</div>`;
   if (ui.cat) html += catPeriodBar();
@@ -821,9 +924,21 @@ function viewTx() {
   if (!list.length) return html + `<p class="muted" style="margin-top:24px">Ingen transaksjoner passer filteret.</p>`;
   const shown = list.slice(0, ui.limit); let lastDay = '';
   const dayFmt = new Intl.DateTimeFormat('nb-NO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  if (!ui.cat) html += `<p class="muted small" style="margin:8px 2px 0">${list.length} ${list.length === 1 ? 'transaksjon' : 'transaksjoner'} · sum ${kr(list.reduce((a, t) => a + t.amount, 0))}</p>`;
-  let open = false;
+  if (!ui.cat) html += `<p class="muted small" style="margin:8px 2px 0">${list.length} ${list.length === 1 ? 'transaksjon' : 'transaksjoner'}</p>`;
+  const mSum = new Map();
+  for (const t of list) {
+    const m = t.date.slice(0, 7), o = mSum.get(m) || { inn: 0, ut: 0, n: 0 }, k = kindOf(t);
+    o.n++; if (k === 'inc') o.inn += t.amount; else if (k === 'exp') o.ut -= t.amount; mSum.set(m, o);
+  }
+  let open = false, lastMonth = '';
   for (const t of shown) {
+    const m = t.date.slice(0, 7);
+    if (m !== lastMonth) {
+      if (open) { html += '</ul>'; open = false; }
+      const o = mSum.get(m);
+      html += `<div class="monthhead"><b>${cap(periodLabel(m))}</b><span>${o.ut ? `Ut ${kr(o.ut)}` : ''}${o.ut && o.inn ? ' · ' : ''}${o.inn ? `Inn ${kr(o.inn)}` : ''}</span></div>`;
+      lastMonth = m; lastDay = '';
+    }
     if (t.date !== lastDay) {
       if (open) html += '</ul>';
       html += `<div class="day">${cap(dayFmt.format(new Date(t.date + 'T12:00')))}</div><ul class="list">`; open = true; lastDay = t.date;
@@ -876,36 +991,58 @@ function viewAvg() {
   }
   const bits = [];
   if (Math.abs(A.transfer) > 0.5) bits.push(`Overføringer (${kr(A.transfer)} per mnd netto) er holdt utenfor.`);
-  if (A.hidden) bits.push(`${A.hidden} engangspost${A.hidden > 1 ? 'er' : ''} er skjult.`);
+  if (A.hidden) bits.push(`${A.hidden} engangspost${A.hidden > 1 ? 'er' : ''} (${kr(A.hiddenSum)} totalt) er holdt utenfor snittet.`);
   if (bits.length) html += `<p class="muted small" style="margin-top:10px">${bits.join(' ')}</p>`;
+  if (!ui.avgDrill) {
+    const F = fixedCosts(), fsum = F.reduce((a, f) => a + f.perMonth, 0);
+    const freq = e => e === 1 ? 'hver måned' : e === 12 ? 'hvert år' : `hver ${e}. måned`;
+    html += `<div class="section"><div class="section-head"><h2>Faste utgifter</h2><span class="num" style="font-weight:700">${kr(fsum)} / mnd</span></div>
+      <div class="figures" style="grid-template-columns:1fr 1fr">
+        <div><span>Snitt inn</span><strong>${kr(A.inc)}</strong></div>
+        <div><span>Fritt etter faste</span><strong class="${A.inc - fsum >= 0 ? 'pos' : 'neg'}">${kr(A.inc - fsum)}</strong></div></div>
+      ${F.length ? `<ul class="list">${F.map(f => `<li><button class="row" data-fixedq="${esc(f.name)}">
+        <span class="dot" style="background:${CATS[mainOf(f.cat)].color}"></span>
+        <span class="name">${esc(f.name)}</span><span class="num">${kr(f.perMonth)}</span>
+        <span class="spread">${esc(catLabel(f.cat))} · ${freq(f.every)}${f.every > 1 ? ', fordelt per måned' : ''}</span></button></li>`).join('')}</ul>` : '<p class="muted small">Fant ingen faste regninger ennå.</p>'}
+      <p class="muted small" style="margin-top:8px">Funnet automatisk: regninger i bolig, gjeld, abonnementer, billån, bilforsikring og trening som kommer jevnlig og fortsatt løper. Regninger som kommer sjeldnere enn månedlig, er fordelt per måned.</p></div>`;
+  }
   return html;
 }
 
 function viewBudget() {
   if (!S.tx.length) return emptyState();
-  const months = monthsInData(), cur = ui.period.length === 7 ? ui.period : months.at(-1);
-  const avgMonths = avgWindow(S.settings.avgN || 6);
-  const T = totals(cur);
-  const avgs = {}; let avgInc = 0;
-  for (const m of avgMonths) { const t = totals(m); avgInc += t.inc / avgMonths.length; for (const [k, v] of Object.entries(t.byMain)) avgs[k] = (avgs[k] || 0) + v / avgMonths.length; }
+  const months = monthsInData(), cur = ui.period.length === 7 ? ui.period : months.at(-1), i = months.indexOf(cur);
+  const prev = months[i - 1], next = months[i + 1];
+  const avgMonths = avgWindow(S.settings.avgN || 6), A = currentAverages();
+  const T = totals(cur, { noOneoff: true });
   const mains = Object.keys(CATS).filter(k => CATS[k].type === 'exp');
   const sumBudget = mains.reduce((a, k) => a + (+S.budgets[k] || 0), 0);
-  let html = `<div class="period"><h1 style="font-size:1.25rem">Budsjett for ${periodLabel(cur)}</h1></div>
+  // Tempo: hvor langt ut i måneden dataene går (bare for påbegynt måned)
+  const sp = dataSpan(), partial = sp.to && sp.to < monthEnd(cur) && sp.to.slice(0, 7) === cur;
+  const frac = partial ? +sp.to.slice(8, 10) / +monthEnd(cur).slice(8, 10) : null;
+  let html = `<div class="period">
+      <button class="arrow" data-budperiod="${prev || ''}" ${prev ? '' : 'disabled'} aria-label="Forrige måned">‹</button>
+      <h1 class="label" style="font-size:1.15rem">Budsjett ${periodLabel(cur)}</h1>
+      <button class="arrow" data-budperiod="${next || ''}" ${next ? '' : 'disabled'} aria-label="Neste måned">›</button></div>
+    ${partialNote(cur) ? `<p class="partial">${partialNote(cur)}</p>` : ''}
     <div class="figures">
       <div><span>Budsjettert</span><strong class="num">${kr(sumBudget)}</strong></div>
       <div><span>Brukt</span><strong class="num ${sumBudget && T.exp > sumBudget ? 'neg' : ''}">${kr(T.exp)}</strong></div>
-      <div><span>Snitt inn</span><strong class="num">${kr(avgInc)}</strong></div></div>
-    <p class="muted small">Snitt er regnet fra ${avgMonths.length ? `${monShort(avgMonths[0])} – ${monShort(avgMonths.at(-1))} (${avgMonths.length} hele måneder)` : '–'}, samme valg som i Snitt-fanen.</p>
+      <div><span>Snitt inn</span><strong class="num">${kr(A.inc)}</strong></div></div>
+    ${frac ? `<p class="muted small">Du er ${Math.round(frac * 100)} % ut i måneden. Den loddrette streken viser hvor mye du «burde» ha brukt så langt. Faste regninger kommer ofte på én dag, så den passer best for mat, shopping og fritid.</p>` : ''}
+    ${T.hidden ? `<p class="muted small">${T.hidden} engangspost${T.hidden > 1 ? 'er' : ''} (${kr(T.hiddenSum)}) er ikke med i budsjettet for denne måneden.</p>` : ''}
+    <p class="muted small">Snitt: ${avgMonths.length ? `${monShort(avgMonths[0])} – ${monShort(avgMonths.at(-1))} (${avgMonths.length} hele måneder)` : '–'}, samme valg som i Snitt-fanen.</p>
     <div class="stack" style="margin:12px 0 16px"><button class="btn block" data-fillbudget>Fyll inn tomme felt med snittet</button></div>
     <ul class="list">`;
   for (const k of mains) {
-    const spent = T.byMain[k] || 0, b = +S.budgets[k] || 0, avg = avgs[k] || 0;
+    const spent = T.byMain[k] || 0, b = +S.budgets[k] || 0, avg = A.byMain[k] || 0;
     if (!b && !spent && !avg) continue;
     const pct = b ? Math.min(100, spent / b * 100) : 0, over = b && spent > b;
+    const ahead = b && frac && spent > b * frac;
     html += `<li class="budget-row">
       <span class="name" style="display:flex;align-items:center;gap:8px;font-weight:600"><span class="dot" style="background:${CATS[k].color}"></span>${esc(CATS[k].name)}</span>
       <input inputmode="numeric" pattern="[0-9]*" placeholder="Mål" value="${b || ''}" data-budget="${k}" aria-label="Månedlig mål for ${esc(CATS[k].name)}">
-      <span class="bar"><i style="width:${b ? pct : 0}%;background:${over ? 'var(--bad)' : CATS[k].color}"></i></span>
+      <span class="bar"><i style="width:${b ? pct : 0}%;background:${over ? 'var(--bad)' : ahead ? 'var(--warn)' : CATS[k].color}"></i>${b && frac ? `<b class="tempo" style="left:${(frac * 100).toFixed(1)}%"></b>` : ''}</span>
       <span class="meta"><span class="${over ? 'over' : ''}">${kr(spent)} brukt${b ? (over ? ` · ${kr(spent - b)} over` : ` · ${kr(b - spent)} igjen`) : ''}</span><span>snitt ${kr(avg)}</span></span></li>`;
   }
   return html + '</ul>';
@@ -916,8 +1053,14 @@ function viewData() {
   const rules = Object.entries(S.rules).sort((a, b) => a[0].localeCompare(b[0], 'nb'));
   const ph = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   const theme = document.documentElement.dataset.theme || ph;
+  const sp = dataSpan(), age = daysSince(sp.to), bAge = daysSince(S.lastBackup);
+  const status = S.tx.length ? `<ul class="list status">
+      <li><span>Data til</span><span class="${age > 30 ? 'warn' : ''}">${shortDate(sp.to)} ${sp.to.slice(0, 4)} (${age} dager siden)</span></li>
+      <li><span>Sist importert</span><span>${S.lastImport ? `${shortDate(S.lastImport.slice(0, 10))} (${daysSince(S.lastImport)} dager siden)` : 'ukjent'}</span></li>
+      <li><span>Sikkerhetskopi</span><span class="${bAge == null || bAge > 30 ? 'warn' : ''}">${S.lastBackup ? `${shortDate(S.lastBackup.slice(0, 10))} (${bAge} dager siden)` : 'aldri tatt'}</span></li></ul>` : '';
   return `<h1 style="font-size:1.25rem;margin:8px 0 12px">Import og data</h1>
-  <div class="card stack">
+  ${status}
+  <div class="card stack" style="margin-top:12px">
     <p style="margin:0">${S.tx.length ? `<b>${S.tx.length}</b> transaksjoner fra ${periodLabel(months[0])} til ${periodLabel(months.at(-1))}.` : 'Ingen data ennå.'}</p>
     <p class="muted small" style="margin:0">Importer CSV fra nettbanken (Transaksjoner → Last ned → CSV). Overlappende perioder er trygt: transaksjoner som allerede finnes, hoppes over. Reserverte (ikke bokførte) poster tas ikke med før de er bokført.</p>
     <label class="btn primary block" for="fileCsv">Velg CSV-fil</label>
@@ -926,9 +1069,11 @@ function viewData() {
   </div>
   <div class="section"><div class="section-head"><h2>Innstillinger</h2></div>
     <div class="card">
-      <label class="check"><input type="checkbox" data-setting="hideOneoff" ${S.settings.hideOneoff ? 'checked' : ''}><span>Skjul engangsposter i oversikt og budsjett<br><span class="muted small">Markér store engangskjøp (for eksempel bil) i transaksjonen.</span></span></label>
+      <label class="check"><input type="checkbox" data-setting="oneoffInAvg" ${S.settings.oneoffInAvg ? 'checked' : ''}><span>Ta med engangsposter i snitt<br><span class="muted small">Engangsposter (for eksempel bilkjøp) vises alltid i måneden de skjedde. Som standard holdes de utenfor snittet, så det viser en vanlig måned.</span></span></label>
       <label class="check"><input type="checkbox" data-darktoggle ${theme === 'dark' ? 'checked' : ''}><span>Mørkt tema</span></label>
     </div></div>
+  ${Object.keys(S.names || {}).length ? `<div class="section"><div class="section-head"><h2>Egne navn</h2><span class="muted small">${Object.keys(S.names).length}</span></div>
+    <ul class="list">${Object.entries(S.names).map(([k, v]) => `<li class="rule"><span><b>${esc(v)}</b><br><span class="small muted">${esc(k.slice(2))}</span></span><button data-delname="${esc(k)}" aria-label="Fjern eget navn ${esc(v)}">Fjern</button></li>`).join('')}</ul></div>` : ''}
   <div class="section"><div class="section-head"><h2>Lærte regler</h2><span class="muted small">${rules.length}</span></div>
     ${rules.length ? `<ul class="list">${rules.map(([k, c]) => `<li class="rule"><span><b>${esc(k.slice(2))}</b> <span class="muted small">${k[0] === '+' ? 'inn' : 'ut'}</span><br><span class="small muted">${esc(catLabel(c))}</span></span><button data-delrule="${esc(k)}" aria-label="Glem regel for ${esc(k)}">Glem</button></li>`).join('')}</ul>`
       : '<p class="muted small">Når du velger kategori på en transaksjon og lar «Husk» stå på, dukker regelen opp her.</p>'}
@@ -960,6 +1105,12 @@ function matchBox(t) {
   }
   return '';
 }
+function isBig(t) { return isPersonTransfer(t) && t.amount <= -5000 && !t.cat && !S.rules[t.key]; }
+function bigBox(t) {
+  if (!isBig(t)) return '';
+  return `<div class="match" style="border-left-color:var(--warn)">Stor overføring til en person. Var dette et kjøp (for eksempel bil), velger du kategorien det hører til nedenfor. «Engangspost» er krysset av, så beløpet vises i riktig måned, men drar ikke opp snittet.
+    <div class="btns"><button class="btn" data-keeptransfer>Nei, det er en overføring</button></div></div>`;
+}
 function openSheet(id) {
   const t = S.tx.find(x => x.id === id); if (!t) return;
   ui.sheet = id; const cur = catOf(t); ui.sheetMain = mainOf(cur); ui.sheetCat = cur;
@@ -990,14 +1141,14 @@ function renderSheet() {
     <div class="amount num ${t.amount > 0 ? 'pos' : ''}">${t.amount > 0 ? '+' : ''}${kr(t.amount)}</div>
     <div class="muted small">${d} · ${esc(t.type)}${t.sub ? ' / ' + esc(t.sub) : ''}</div>
     ${t.msg ? `<div class="details">${esc(t.msg)}</div>` : ''}
-    <div class="small muted">Nå: ${esc(catLabel(catOf(t)))} (${sourceOf(t)})</div>
-    ${matchBox(t)}
+    <div class="small muted">Nå: ${esc(catLabel(catOf(t)))} (${sourceOf(t)}) · <button class="inline" data-rename>Gi nytt navn</button></div>
+    ${bigBox(t)}${matchBox(t)}
     <div class="maincats" role="group" aria-label="Hovedkategori">${Object.entries(CATS).filter(([k]) => k !== 'ukat').map(([k, c]) =>
       `<button data-smain="${k}" aria-pressed="${k === ui.sheetMain}"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')}</div>
     ${M && ui.sheetMain !== 'ukat' ? `<div class="subcats" role="group" aria-label="Underkategori">${Object.entries(M.subs).map(([s, n]) =>
       `<button class="chip" data-ssub="${ui.sheetMain}/${s}" aria-pressed="${ui.sheetCat === ui.sheetMain + '/' + s}">${esc(n)}</button>`).join('')}</div>` : ''}
     <label class="check"><input type="checkbox" id="remember" ${isPersonTransfer(t) ? '' : 'checked'}><span>Husk for alle fra «${esc(t.key.slice(2))}»${same ? ` <span class="muted small">(${same} til)</span>` : ''}${isPersonTransfer(t) ? '<br><span class="muted small">Av som standard for personer, siden venner betaler for ulike ting.</span>' : ''}</span></label>
-    <label class="check"><input type="checkbox" id="oneoff" ${t.oneoff ? 'checked' : ''}><span>Engangspost <span class="muted small">(kan skjules i oversikten)</span></span></label>
+    <label class="check"><input type="checkbox" id="oneoff" ${t.oneoff || isBig(t) ? 'checked' : ''}><span>Engangspost <span class="muted small">(vises i måneden, men holdes utenfor snittet)</span></span></label>
     <div class="sheet-actions">
       ${t.cat ? `<button class="btn" data-sreset>Automatisk</button>` : `<button class="btn" data-sclose>Avbryt</button>`}
       <button class="btn primary" data-ssave ${ui.sheetCat && ui.sheetCat !== 'ukat/ukat' && ui.sheetCat.startsWith(ui.sheetMain + '/') ? '' : 'disabled'}>Lagre kategori</button>
@@ -1039,7 +1190,7 @@ async function importTexts(items) {
       const { added, dupes } = mergeTx(S.tx, tx);
       if (!S.owner) S.owner = detectOwner(tx);
       for (const t of added) t.key = merchantKey(t);
-      S.tx.push(...added);
+      S.tx.push(...added); S.lastImport = new Date().toISOString();
       const uk = added.filter(t => catOf(t) === 'ukat/ukat').length;
       lines.push(`<b>${esc(f.name)}</b>: ${added.length} nye, ${dupes} fantes fra før${reserved ? `, ${reserved} reservert (venter)` : ''}${uk ? `. <b>${uk}</b> trenger kategori.` : '.'}`);
     } catch (e) { lines.push(`<b>${esc(f.name)}</b>: <span class="neg">${esc(e.message)}</span>`); }
@@ -1056,17 +1207,19 @@ async function exportBackup() {
   const name = `budsjett-backup-${new Date().toISOString().slice(0, 10)}.json`;
   try {
     const dl = window.claude?.use ? await window.claude.use('downloads') : null;
-    if (dl) { await dl.save({ filename: name, data }); toast('Sikkerhetskopi lagret'); return; }
+    if (dl) { await dl.save({ filename: name, data }); S.lastBackup = new Date().toISOString(); save(); render(); toast('Sikkerhetskopi lagret'); return; }
   } catch (e) { if (e?.code === 'declined') return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' })); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
+  S.lastBackup = new Date().toISOString(); save(); render();
 }
 async function restoreBackup(f) {
   try {
     const s = JSON.parse(await f.text());
     if (!Array.isArray(s.tx)) throw new Error('Filen er ikke en sikkerhetskopi fra denne appen.');
     if (!confirm(`Erstatte dagens data med ${s.tx.length} transaksjoner fra sikkerhetskopien?`)) return;
-    S = { ...blank(), tx: s.tx, rules: s.rules || {}, budgets: s.budgets || {}, settings: { ...blank().settings, ...(s.settings || {}) }, owner: s.owner || '', coverage: s.coverage || [] };
+    S = { ...blank(), tx: s.tx, rules: s.rules || {}, budgets: s.budgets || {}, settings: { ...blank().settings, ...(s.settings || {}) }, owner: s.owner || '', coverage: s.coverage || [], v: s.v || 1, names: s.names || {}, lastImport: s.lastImport || null, lastBackup: s.lastBackup || null };
+    migrate();
     autoMemo.clear(); save(); ui.period = monthsInData().at(-1) || null; render(); toast('Sikkerhetskopi gjenopprettet');
   } catch (e) { toast(e.message); }
 }
@@ -1090,6 +1243,20 @@ document.addEventListener('click', e => {
   const d = el.dataset;
   if (d.tab) return go(d.tab);
   if ('period' in d && d.period) { ui.period = d.period; ui.drill = null; return render(); }
+  if ('bigtx' in d) { const b = bigTransfers(); if (b.length === 1) return openSheet(b[0].id); ui.kind = 'stor'; ui.cat = null; ui.q = ''; return go('tx'); }
+  if ('keeptransfer' in d) { const t = S.tx.find(x => x.id === ui.sheet); if (t) { t.cat = 'overforing/personer'; save(); toast('Beholdt som overføring'); } closeSheet(); return render(); }
+  if ('rename' in d) {
+    const t = S.tx.find(x => x.id === ui.sheet); if (!t) return;
+    const n = S.tx.filter(x => x.key === t.key).length;
+    const v = prompt(`Nytt navn${n > 1 ? ` for alle ${n} fra «${t.key.slice(2)}»` : ''} (tomt = automatisk):`, niceName(t));
+    if (v === null) return;
+    S.names = S.names || {};
+    if (v.trim()) S.names[t.key] = v.trim(); else delete S.names[t.key];
+    save(); renderSheet(); return render();
+  }
+  if (d.delname) { delete S.names[d.delname]; save(); return render(); }
+  if (d.fixedq) { ui.q = d.fixedq; ui.kind = 'alle'; ui.cat = null; return go('tx'); }
+  if (d.budperiod) { ui.period = d.budperiod; return render(); }
   if (d.avgn) { S.settings.avgN = d.avgn === 'alle' ? 'alle' : +d.avgn; save(); return render(); }
   if ('avgdrill' in d) { ui.avgDrill = d.avgdrill || null; render(); return window.scrollTo(0, 0); }
   if (d.showcat && d.range) { ui.cat = d.showcat; ui.period = d.range; ui.kind = 'alle'; ui.q = ''; return go('tx'); }
@@ -1126,8 +1293,7 @@ document.addEventListener('click', e => {
   if ('wipe' in d) { if (confirm('Slette alle transaksjoner, regler og budsjett på denne enheten?')) { S = blank(); autoMemo.clear(); save(); render(); toast('Alle data er slettet'); } return; }
   if (d.delrule) { delete S.rules[d.delrule]; save(); return render(); }
   if ('fillbudget' in d) {
-    const avgM = avgWindow(S.settings.avgN || 6);
-    const acc = {}; for (const m of avgM) for (const [k, v] of Object.entries(totals(m).byMain)) acc[k] = (acc[k] || 0) + v / avgM.length;
+    const acc = currentAverages().byMain;
     let n = 0; for (const [k, v] of Object.entries(acc)) if (!S.budgets[k] && v > 0 && k !== 'ukat') { S.budgets[k] = Math.ceil(v / 100) * 100; n++; }
     save(); render(); return toast(n ? `Fylte inn ${n} mål, rundet opp til nærmeste hundrelapp.` : 'Alle felt har allerede et mål.');
   }
@@ -1144,12 +1310,19 @@ document.addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.budget) { const v = parseInt(el.value.replace(/\D/g, ''), 10); if (v) S.budgets[el.dataset.budget] = v; else delete S.budgets[el.dataset.budget]; save(); render(); }
   if (el.dataset.setting) { S.settings[el.dataset.setting] = el.checked; save(); render(); }
-  if ('darktoggle' in el.dataset) { document.documentElement.dataset.theme = el.checked ? 'dark' : 'light'; S.settings.theme = document.documentElement.dataset.theme; save(); }
+  if ('darktoggle' in el.dataset) { document.documentElement.dataset.theme = el.checked ? 'dark' : 'light'; S.settings.theme = document.documentElement.dataset.theme; save(); applyThemeColor(); }
   if (el.id === 'fileCsv' && el.files.length) { importFiles([...el.files]); el.value = ''; }
   if (el.id === 'fileBackup' && el.files[0]) { restoreBackup(el.files[0]); el.value = ''; }
 });
 
+function applyThemeColor() {
+  const dt = document.documentElement.dataset.theme;
+  const dark = dt ? dt === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.getElementById('themeColor').setAttribute('content', dark ? '#0F1E23' : '#EAF0F1');
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyThemeColor);
 if (S.settings.theme) document.documentElement.dataset.theme = S.settings.theme;
+applyThemeColor();
 render();
 
 // ===== PWA: offline og varig lagring =====
