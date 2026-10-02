@@ -1,6 +1,6 @@
 // Budsjett service worker: appen virker uten nett.
 // Selve appen hentes fra nett når mulig (så oppdateringer kommer med), ellers fra lagret kopi.
-const CACHE = 'budsjett-v2';
+const CACHE = 'budsjett-v3';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
@@ -15,7 +15,8 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   if (req.mode === 'navigate') {
     // Nett først for selve appen, lagret kopi hvis offline
-    e.respondWith(fetch(req).then(res => {
+    // cache: 'no-store' hopper over nettleserens mellomlager, så en ny versjon fra GitHub kommer med en gang
+    e.respondWith(fetch(req, { cache: 'no-store' }).then(res => {
       const copy = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copy)); return res;
     }).catch(() => caches.match('./index.html')));
     return;
